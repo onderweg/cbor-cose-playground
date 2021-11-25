@@ -64,7 +64,7 @@ size_t buffer_to_hexstring(char **string, byte *buffer, size_t buf_len)
 }
 
 /**
- * CBOR encodes the structure of a signed message
+ * Does CBOR encoding of a signed message structure
  */
 void cose_sign1_structure(const char *context,
                           bytes *body_protected,
@@ -127,7 +127,7 @@ void cose_parse_protected_hdr(bytes *protected, cose_protected_header *out)
 }
 
 /**
- * Compare calculated HMAC 256 signature hash with received signature
+ * Compare calculated HMAC 256 signature with received signature
  */
 int verify_hmac(bytes *to_verify, bytes *signature, char *secret)
 {
@@ -211,7 +211,7 @@ void cose_decode_sign1(bytes *sign1, uint8_t *calculated_sig_buf, size_t calcula
     bytes signature;
     cbor_value_dup_byte_string(&e, &signature.buf, &signature.len, &e);
 
-    // Calculate signature to verify    
+    // Calculate signature. This calculated signature will be used to verify message.  
     size_t to_verify_len;
     cose_sign1_structure(
         "Signature1", 
@@ -243,7 +243,6 @@ int main(int argc, char *argv[])
     bytes msg_bytes = {msg_buf, msg_len};
     uint8_t to_verify_buf[1024];
     cose_decode_sign1(&msg_bytes, to_verify_buf, sizeof(to_verify_buf), &signed_msg);   
-
 
     // Verify signature
     if (signed_msg.protected_header.alg == COSE_ALG_HMAC_256)

@@ -1,6 +1,6 @@
 # My CBOR COSE playground
 
-Playground for working with the CBOR Object Signing and Encryption (COSE) protocol in C.
+Playground for working with the [CBOR](https://cbor.io/) Object Signing and Encryption ([COSE](https://datatracker.ietf.org/doc/html/rfc8152)) protocol in C.
 
 Goal is to learn more about handling CBOR and COSE with lightweight libraries, that can
 run on IoT devices.
@@ -19,5 +19,5 @@ The following libraries are used:
 
 ## Disclaimer
 
-This repo is just a playground, that might be handy for others to look into as reference or example material.
-Don't let this code come anywhere near production.
+This repo is just a playground. It might come in handy for others to look into as reference or as example material.
+Code in this repo is in no way stable. Don't let this code come anywhere near production.
