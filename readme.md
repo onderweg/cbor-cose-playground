@@ -19,5 +19,5 @@ The following libraries are used:
 
 ## Disclaimer
 
-This repo is just a playground. It might come in handy for others to look into as reference or as example material.
+This repo is just a playground. It might come in handy for others to look into as reference or as example material (I did not find a lot of examples of COSE handling in C).
 Code in this repo is in no way stable. Don't let this code come anywhere near production.

@@ -145,7 +145,7 @@ int verify_hmac(bytes *to_verify, bytes *signature, char *secret)
 
     char *y;
     buffer_to_hexstring(&y, signature->buf, signature->len);
-    printf("Embeded Signature: %s\n", y);
+    printf("Received Signature: %s\n", y);
 
     int ret = memcmp(hmacDigest, signature->buf, SHA256_DIGEST_SIZE);
     return ret;
@@ -236,7 +236,7 @@ int main(int argc, char *argv[])
     cose_msg signed_msg;
     byte *msg_buf;
 
-    // HMAC-SHA256 signed cose message    
+    // HMAC-SHA256 signed COSE message    
     char *msg_hex = "d28445a201050300a04e546869732061206d657373616765582091e726b7d4897fdfdfff50652d977fdd3dbe3110d08059569ffbfa18978b281e";    
 
     size_t msg_len = hexstring_to_buffer(&msg_buf, msg_hex, strlen(msg_hex));
