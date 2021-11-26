@@ -72,10 +72,10 @@ size_t buffer_to_hexstring(char **string, byte *buffer, size_t buf_len)
 }
 
 /**
- * Encodes COSE MAC_structure structure message structure in CBOR.
+ * Encodes COSE MAC_structure in CBOR.
  * See: https://www.ietf.org/id/draft-ietf-cose-rfc8152bis-struct-15.html#name-how-to-compute-and-verify-a
  */
-void cose_encode_mac0(const char *context,
+void cose_encode_mac_structure(const char *context,
                           bytes *body_protected,
                           bytes *external_aad,
                           bytes *payload,
@@ -102,7 +102,7 @@ void cose_encode_mac0(const char *context,
  * Encodes COSE Sig_structure structure in CBOR.
  * See: https://www.ietf.org/id/draft-ietf-cose-rfc8152bis-struct-15.html#name-signing-and-verification-pr
  */
-void cose_encode_sign1(const char *context,
+void cose_encode_sig_structure(const char *context,
                           bytes *body_protected,
                           bytes *unprotected,
                           bytes *payload,
@@ -203,9 +203,9 @@ int verify_es256(bytes *to_verify, bytes *signature, ecc_key *key)
 }
 
 /**
- * Decode sign1 message and calculate bytes to be verified
+ * Decode sign1/mac0 message and calculate bytes to be verified
  */
-void cose_decode_sign1(bytes *sign1, uint8_t *calculated_sig_buf, size_t calculated_sig_size, cose_sign1_mac_msg *out)
+void cose_decode_sign1_mac0(bytes *sign1, uint8_t *calculated_sig_buf, size_t calculated_sig_size, cose_sign1_mac_msg *out)
 {
     // Parse
     CborParser parser;
@@ -245,7 +245,7 @@ void cose_decode_sign1(bytes *sign1, uint8_t *calculated_sig_buf, size_t calcula
     // Calculate bytes to verify. 
     size_t to_verify_len = 0;
     if (tag == CborCOSE_Sign1Tag) {        
-        cose_encode_sign1(
+        cose_encode_sig_structure(
             "Signature1", 
             &protected, 
             &unprotected, 
@@ -256,7 +256,7 @@ void cose_decode_sign1(bytes *sign1, uint8_t *calculated_sig_buf, size_t calcula
         );
     } else if (tag == CborCOSE_Mac0Tag) {        
         bytes external_aad ={NULL, 0};
-        cose_encode_mac0(
+        cose_encode_mac_structure(
             "MAC0", 
             &protected, 
             &external_aad, 
@@ -276,6 +276,49 @@ void cose_decode_sign1(bytes *sign1, uint8_t *calculated_sig_buf, size_t calcula
     out->to_verify = to_verify;
 }
 
+/**
+ * Encode a mac0 message
+ */
+void cose_encode_mac0(cose_sign1_mac_msg* sign1, byte* secret, size_t secret_size,
+                        uint8_t* out, size_t out_size, size_t* out_len) {
+    uint8_t sign_buf[512];
+    size_t sign_len = sizeof(sign_buf);
+    bytes external_aad ={NULL, 0};
+
+    // Create MAC structure and encode it
+    cose_encode_mac_structure(
+        "MAC0", 
+        &sign1->protected_header, 
+        &external_aad, 
+        &sign1->payload,
+        sign_buf,
+        sizeof(sign_buf), 
+        &sign_len
+    );
+
+    // Apply MAC
+    Hmac hmac;
+    byte hmacDigest[SHA256_DIGEST_SIZE];
+    wc_HmacSetKey(&hmac, WC_SHA256, secret, secret_size);
+    wc_HmacUpdate(&hmac, sign_buf, sign_len);
+    wc_HmacFinal(&hmac, hmacDigest);
+
+    CborEncoder enc;
+    cbor_encoder_init(&enc, out, out_size, 0);
+    cbor_encode_tag(&enc, CborCOSE_Mac0Tag);
+
+    CborEncoder ary;
+    cbor_encoder_create_array(&enc, &ary, 4);
+
+    cbor_encode_byte_string(&ary, sign1->protected_header.buf, sign1->protected_header.len);
+    cbor_encode_byte_string(&ary, sign1->unprotected_header.buf, sign1->unprotected_header.len);
+    cbor_encode_byte_string(&ary, sign1->payload.buf, sign1->payload.len);
+    cbor_encode_byte_string(&ary, hmacDigest, SHA256_DIGEST_SIZE);
+
+    cbor_encoder_close_container(&enc, &ary);
+    *out_len = cbor_encoder_get_buffer_size(&enc, out);
+}
+
 int main(int argc, char *argv[])
 {
     cose_sign1_mac_msg signed_msg;
@@ -290,11 +333,12 @@ int main(int argc, char *argv[])
     size_t key_len = hexstring_to_buffer(&key_buf, key_hex, strlen(key_hex));
     size_t msg_len = hexstring_to_buffer(&msg_buf, msg_hex, strlen(msg_hex));
 
+    // Decode CBOR message
     bytes msg_bytes = {msg_buf, msg_len};
     uint8_t to_verify_buf[1024];
-    cose_decode_sign1(&msg_bytes, to_verify_buf, sizeof(to_verify_buf), &signed_msg);   
+    cose_decode_sign1_mac0(&msg_bytes, to_verify_buf, sizeof(to_verify_buf), &signed_msg);   
 
-    // Verify signature    
+    // Parse protected header    
     cose_protected_header protected_header = {
         .alg = 0};
     cose_parse_protected_hdr(&signed_msg.protected_header, &protected_header);    
@@ -302,7 +346,7 @@ int main(int argc, char *argv[])
     printf("CBOR tag: %llu\n", signed_msg.tag);
     printf("Signature type in protected header: %i\n", protected_header.alg);
     if (protected_header.alg == COSE_ALG_HMAC_256)
-    {        
+    {    
         int verified = verify_hmac(
             &signed_msg.to_verify,
             &signed_msg.signature,
