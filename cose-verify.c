@@ -23,14 +23,22 @@ typedef struct cose_protected_header
     uint64_t content_type; // index 3
 } cose_protected_header;
 
-typedef struct cose_raw_msg
-{
-    bytes payload;
+/**
+ * Structure representing a signed (COSE_Sign1) or MACed (COSE_Mac0) message
+ * 
+ * See:
+ * - COSE_Sign1: https://www.ietf.org/id/draft-ietf-cose-rfc8152bis-struct-15.html#name-signing-objects
+ * - COSE_Mac0: https://www.ietf.org/id/draft-ietf-cose-rfc8152bis-struct-15.html#name-maced-messages-with-implici
+ */
+typedef struct cose_sign1_mac_msg
+{    
+    CborTag tag;
     bytes protected_header;
     bytes unprotected_header;
-    bytes signature;   
+    bytes payload;
+    bytes signature; 
     bytes to_verify; 
-} cose_raw_msg;
+} cose_sign1_mac_msg;
 
 size_t hexstring_to_buffer(byte **buffer, char *string, size_t string_len)
 {
@@ -67,7 +75,7 @@ size_t buffer_to_hexstring(char **string, byte *buffer, size_t buf_len)
  * Encodes COSE MAC_structure structure message structure in CBOR.
  * See: https://www.ietf.org/id/draft-ietf-cose-rfc8152bis-struct-15.html#name-how-to-compute-and-verify-a
  */
-void cose_mac0_structure(const char *context,
+void cose_encode_mac0(const char *context,
                           bytes *body_protected,
                           bytes *external_aad,
                           bytes *payload,
@@ -94,7 +102,7 @@ void cose_mac0_structure(const char *context,
  * Encodes COSE Sig_structure structure in CBOR.
  * See: https://www.ietf.org/id/draft-ietf-cose-rfc8152bis-struct-15.html#name-signing-and-verification-pr
  */
-void cose_sign1_structure(const char *context,
+void cose_encode_sign1(const char *context,
                           bytes *body_protected,
                           bytes *unprotected,
                           bytes *payload,
@@ -197,7 +205,7 @@ int verify_es256(bytes *to_verify, bytes *signature, ecc_key *key)
 /**
  * Decode sign1 message and calculate bytes to be verified
  */
-void cose_decode_sign1(bytes *sign1, uint8_t *calculated_sig_buf, size_t calculated_sig_size, cose_raw_msg *out)
+void cose_decode_sign1(bytes *sign1, uint8_t *calculated_sig_buf, size_t calculated_sig_size, cose_sign1_mac_msg *out)
 {
     // Parse
     CborParser parser;
@@ -236,9 +244,8 @@ void cose_decode_sign1(bytes *sign1, uint8_t *calculated_sig_buf, size_t calcula
 
     // Calculate bytes to verify. 
     size_t to_verify_len = 0;
-    if (tag == 18) {
-        // sign 1
-        cose_sign1_structure(
+    if (tag == CborCOSE_Sign1Tag) {        
+        cose_encode_sign1(
             "Signature1", 
             &protected, 
             &unprotected, 
@@ -247,10 +254,9 @@ void cose_decode_sign1(bytes *sign1, uint8_t *calculated_sig_buf, size_t calcula
             calculated_sig_size, 
             &to_verify_len
         );
-    } else if (tag == 17) {
-        // mac0
+    } else if (tag == CborCOSE_Mac0Tag) {        
         bytes external_aad ={NULL, 0};
-        cose_mac0_structure(
+        cose_encode_mac0(
             "MAC0", 
             &protected, 
             &external_aad, 
@@ -262,6 +268,7 @@ void cose_decode_sign1(bytes *sign1, uint8_t *calculated_sig_buf, size_t calcula
     }
     bytes to_verify = (bytes){calculated_sig_buf, to_verify_len};
 
+    out->tag = tag;
     out->payload = payload;
     out->protected_header = protected;
     out->unprotected_header = unprotected;
@@ -271,7 +278,7 @@ void cose_decode_sign1(bytes *sign1, uint8_t *calculated_sig_buf, size_t calcula
 
 int main(int argc, char *argv[])
 {
-    cose_raw_msg signed_msg;
+    cose_sign1_mac_msg signed_msg;
     byte *msg_buf, *key_buf;
 
     // Example HMAC-SHA256 signed COSE message    
@@ -292,6 +299,7 @@ int main(int argc, char *argv[])
         .alg = 0};
     cose_parse_protected_hdr(&signed_msg.protected_header, &protected_header);    
 
+    printf("CBOR tag: %llu\n", signed_msg.tag);
     printf("Signature type in protected header: %i\n", protected_header.alg);
     if (protected_header.alg == COSE_ALG_HMAC_256)
     {        
