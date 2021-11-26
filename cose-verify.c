@@ -23,14 +23,14 @@ typedef struct cose_protected_header
     uint64_t content_type; // index 3
 } cose_protected_header;
 
-typedef struct cose_msg
+typedef struct cose_raw_msg
 {
     bytes payload;
-    cose_protected_header protected_header;
+    bytes protected_header;
     bytes unprotected_header;
     bytes signature;   
     bytes calculated_signature; 
-} cose_msg;
+} cose_raw_msg;
 
 size_t hexstring_to_buffer(byte **buffer, char *string, size_t string_len)
 {
@@ -169,7 +169,7 @@ int verify_es256(bytes *to_verify, bytes *signature, ecc_key *key)
 /**
  * Decode sign1 message and calculate expected signature
  */
-void cose_decode_sign1(bytes *sign1, uint8_t *calculated_sig_buf, size_t calculated_sig_size, cose_msg *out)
+void cose_decode_sign1(bytes *sign1, uint8_t *calculated_sig_buf, size_t calculated_sig_size, cose_raw_msg *out)
 {
     // Parse
     CborParser parser;
@@ -186,11 +186,6 @@ void cose_decode_sign1(bytes *sign1, uint8_t *calculated_sig_buf, size_t calcula
     // Get protected header
     bytes protected;
     cbor_value_dup_byte_string(&e, &protected.buf, &protected.len, &e);
-
-    // Parse protected header
-    cose_protected_header protected_header = {
-        .alg = 0};
-    cose_parse_protected_hdr(&protected, &protected_header);
 
     // Get unprotected header, if not empty
     bytes unprotected = {NULL, 0};
@@ -225,7 +220,7 @@ void cose_decode_sign1(bytes *sign1, uint8_t *calculated_sig_buf, size_t calcula
     bytes to_verify = (bytes){calculated_sig_buf, to_verify_len};
 
     out->payload = payload;
-    out->protected_header = protected_header;
+    out->protected_header = protected;
     out->unprotected_header = unprotected;
     out->signature = signature;
     out->calculated_signature = to_verify;
@@ -233,7 +228,7 @@ void cose_decode_sign1(bytes *sign1, uint8_t *calculated_sig_buf, size_t calcula
 
 int main(int argc, char *argv[])
 {
-    cose_msg signed_msg;
+    cose_raw_msg signed_msg;
     byte *msg_buf;
 
     // HMAC-SHA256 signed COSE message    
@@ -244,8 +239,13 @@ int main(int argc, char *argv[])
     uint8_t to_verify_buf[1024];
     cose_decode_sign1(&msg_bytes, to_verify_buf, sizeof(to_verify_buf), &signed_msg);   
 
-    // Verify signature
-    if (signed_msg.protected_header.alg == COSE_ALG_HMAC_256)
+    // Verify signature    
+    cose_protected_header protected_header = {
+        .alg = 0};
+    cose_parse_protected_hdr(&signed_msg.protected_header, &protected_header);    
+
+    printf("Signature type in protected header: %i\n", protected_header.alg);
+    if (protected_header.alg == COSE_ALG_HMAC_256)
     {
         char* key = "vleuten";
         int verified = verify_hmac(
