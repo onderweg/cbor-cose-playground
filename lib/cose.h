@@ -36,7 +36,8 @@ typedef struct cose_sign1_mac_msg
     bytes to_verify; 
 } cose_sign1_mac_msg;
 
-void cose_decode_protected_hdr(bytes *protected, cose_protected_header *out);
+void cose_encode_protected_header(cose_protected_header *hdr, uint8_t *out, size_t out_size,  size_t *out_len);
+void cose_decode_protected_header(bytes *protected, cose_protected_header *out);
 
 void cose_decode_sign1_mac0(bytes *sign1, uint8_t *calculated_sig_buf, size_t calculated_sig_size, cose_sign1_mac_msg *out);
 

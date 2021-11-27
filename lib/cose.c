@@ -66,10 +66,26 @@ void cose_encode_sig_structure(const char *context,
     *out_len = cbor_encoder_get_buffer_size(&enc, out);
 }
 
+/** 
+ * Encodes a protected header from a struct
+ */
+void cose_encode_protected_header(cose_protected_header *hdr, uint8_t *out, size_t out_size,  size_t *out_len) {
+    CborEncoder enc;    
+    cbor_encoder_init(&enc, out, out_size, 0);
+
+    CborEncoder map;
+    cbor_encoder_create_map(&enc, &map, 1);    
+    cbor_encode_int(&map, 1);
+    cbor_encode_int(&map, hdr->alg);
+
+    cbor_encoder_close_container(&enc, &map);
+    *out_len = cbor_encoder_get_buffer_size(&enc, out); 
+}
+
 /**
  * Parse cose protected header into a struct
  */
-void cose_decode_protected_hdr(bytes *protected, cose_protected_header *out)
+void cose_decode_protected_header(bytes *protected, cose_protected_header *out)
 {
     CborParser parser;
     CborValue cborValue;
@@ -127,6 +143,9 @@ int verify_hmac(bytes *to_verify, bytes *signature, size_t secret_len, const byt
     return ret;
 }
 
+/**
+ * Verify ES256 (SHA256 with ECDSA) signature.
+ */
 int verify_es256(bytes *to_verify, bytes *signature, ecc_key *key)
 {
     // Compute digest

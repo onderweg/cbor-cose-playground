@@ -11,8 +11,7 @@
 #include "lib/cose.h"
 #include "lib/utils.h"
 
-int main(int argc, char *argv[])
-{
+void verify_mac0() {
     cose_sign1_mac_msg signed_msg;
     byte *msg_buf, *key_buf;
 
@@ -33,7 +32,7 @@ int main(int argc, char *argv[])
     // Parse protected header    
     cose_protected_header protected_header = {
         .alg = 0};
-    cose_decode_protected_hdr(&signed_msg.protected_header, &protected_header);    
+    cose_decode_protected_header(&signed_msg.protected_header, &protected_header);    
 
     printf("CBOR tag: %llu\n", signed_msg.tag);
     printf("Signature type in protected header: %i\n", protected_header.alg);
@@ -46,4 +45,9 @@ int main(int argc, char *argv[])
             key_buf);
         printf("Verified: %s\n", verified == 0 ? "YES" : "NO");
     }
+}
+
+int main(int argc, char *argv[])
+{
+    verify_mac0();
 }
