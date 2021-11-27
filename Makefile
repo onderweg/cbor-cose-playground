@@ -1,4 +1,6 @@
 CFLAGS = -Wall
 
+LIB_SRC=$(wildcard lib/*.c)
+
 cose-verify: cose-verify.c
-	gcc $(CFLAGS) cose-verify.c -o cose-verify `pkg-config --cflags --libs wolfssl tinycbor`
+	gcc $(CFLAGS) $(LIB_SRC) cose-verify.c -o cose-verify `pkg-config --cflags --libs wolfssl tinycbor`
