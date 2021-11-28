@@ -8,22 +8,9 @@ cose-encode
 *.obj
 *.elf
 
-# Linker output
-*.ilk
-*.map
-*.exp
-
-# Precompiled Headers
-*.gch
-*.pch
-
-# Executables
-*.exe
-*.out
-*.app
-*.i*86
-*.x86_64
-*.hex
+# IDE files
+.vscode/*
+.idea/*
 
 # Debug files
 *.dSYM/
