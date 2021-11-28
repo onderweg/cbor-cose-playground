@@ -13,8 +13,9 @@
 
 int main(int argc, char *argv[])
 {
-    byte secret[] = { 0xAB, 0xAC, 0xAD };
-    size_t secret_size = sizeof(secret);
+    byte secret_buf[] = { 0xAB, 0xAC, 0xAD };
+    size_t secret_size = sizeof(secret_buf);
+    bytes secret = {secret_buf, secret_size};
 
     // Encode payload, encoded as bstr. From COSE specs:
     // "payload is wrapped in a bstr to ensure that it is transported without changes. "
@@ -51,8 +52,7 @@ int main(int argc, char *argv[])
 
     cose_encode_mac0(
         &msg, 
-        secret, 
-        secret_size,
+        &secret,         
         out_buf, 
         out_size, 
         &out_len

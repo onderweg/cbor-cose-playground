@@ -88,7 +88,7 @@ void cose_encode_header(CborEncoder *enc, cose_header *hdr) {
 }
 
 /**
- * Decodes cose protected header (CBOR 'bstr' type) to a struct
+ * Decodes COSE protected header (CBOR 'bstr' type) to a struct
  */
 void cose_decode_protected_header(bytes *protected, cose_header *out) {
     CborParser parser;
@@ -131,7 +131,7 @@ void cose_decode_header(CborValue *cborValue, cose_header *out) {
 }
 
 /**
- * Compare calculated HMAC 256 signature with provided signature
+ * Compare calculated HMAC 256 signature to provided signature
  */
 int verify_hmac(bytes *to_verify, bytes *signature, bytes *secret) {
     Hmac hmac;
@@ -164,7 +164,7 @@ int verify_es256(bytes *to_verify, bytes *signature, ecc_key *key) {
     wc_InitSha256(&sha);
     wc_Sha256Update(&sha, to_verify->buf, (word32)to_verify->len);
     wc_Sha256Final(&sha, digest);
-
+    // Verify
     int ret, verified = 0;
     ret = wc_ecc_verify_hash(signature->buf,
         (word32)signature->len,
@@ -181,8 +181,7 @@ int verify_es256(bytes *to_verify, bytes *signature, ecc_key *key) {
  */
 void cose_decode_sign1_mac0(bytes *sign1, bytes *external_aad,
     uint8_t *calculated_sig_buf, size_t calculated_sig_size,
-    cose_sign1_mac_msg *out) {
-    // Parse
+    cose_sign1_mac_msg *out) {    
     CborParser parser;
     CborValue val;
     cbor_parser_init(sign1->buf, sign1->len, 0, &parser, &val);
@@ -194,7 +193,7 @@ void cose_decode_sign1_mac0(bytes *sign1, bytes *external_aad,
     CborValue e;
     cbor_value_enter_container(&val, &e);
 
-    // Get protected header (CBOR 'bstr' type)
+    // Get protected header (COSE protected header is wrapped in a 'bstr')
     bytes protected;
     cbor_value_dup_byte_string(&e, &protected.buf, &protected.len, &e);
 
@@ -206,7 +205,7 @@ void cose_decode_sign1_mac0(bytes *sign1, bytes *external_aad,
         cbor_value_advance(&e); // skip empty unprotected header
     }
 
-    // Get payload
+    // Get payload (COSE payload is wrapped in a 'bstr')
     bytes payload;
     cbor_value_dup_byte_string(&e, &payload.buf, &payload.len, &e);
 
@@ -244,19 +243,19 @@ void cose_decode_sign1_mac0(bytes *sign1, bytes *external_aad,
 }
 
 /**
- * Encode a mac0 message
+ * Encode a COSE_Mac0 message
  */
-void cose_encode_mac0(cose_sign1_mac_msg *sign1, byte *secret,
-    size_t secret_size, uint8_t *out, size_t out_size, size_t *out_len) {
+void cose_encode_mac0(cose_sign1_mac_msg *msg, bytes *secret,
+     uint8_t *out, size_t out_size, size_t *out_len) {
     uint8_t sign_buf[512];
     size_t sign_len = sizeof(sign_buf);
     bytes external_aad = {NULL, 0};
 
     // Create MAC structure and encode it
     cose_encode_mac_structure("MAC0",
-        &sign1->protected_header,
+        &msg->protected_header,
         &external_aad,
-        &sign1->payload,
+        &msg->payload,
         sign_buf,
         sizeof(sign_buf),
         &sign_len);
@@ -264,7 +263,7 @@ void cose_encode_mac0(cose_sign1_mac_msg *sign1, byte *secret,
     // Apply MAC
     Hmac hmac;
     byte hmacDigest[SHA256_DIGEST_SIZE];
-    wc_HmacSetKey(&hmac, WC_SHA256, secret, secret_size);
+    wc_HmacSetKey(&hmac, WC_SHA256, secret->buf, secret->len);
     wc_HmacUpdate(&hmac, sign_buf, sign_len);
     wc_HmacFinal(&hmac, hmacDigest);
 
@@ -276,10 +275,10 @@ void cose_encode_mac0(cose_sign1_mac_msg *sign1, byte *secret,
     cbor_encoder_create_array(&enc, &ary, 4);
 
     cbor_encode_byte_string(
-        &ary, sign1->protected_header.buf, sign1->protected_header.len);
-    cose_encode_header(&ary, &sign1->unprotected_header);
+        &ary, msg->protected_header.buf, msg->protected_header.len);
+    cose_encode_header(&ary, &msg->unprotected_header);
 
-    cbor_encode_byte_string(&ary, sign1->payload.buf, sign1->payload.len);
+    cbor_encode_byte_string(&ary, msg->payload.buf, msg->payload.len);
     cbor_encode_byte_string(&ary, hmacDigest, SHA256_DIGEST_SIZE);
 
     cbor_encoder_close_container(&enc, &ary);
