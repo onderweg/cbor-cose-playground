@@ -16,16 +16,18 @@ int main(int argc, char *argv[])
     byte secret[] = { 0xAB, 0xAC, 0xAD };
     size_t secret_size = sizeof(secret);
 
-    // Encode payload
+    // Encode payload, encoded as bstr. From COSE specs:
+    // "payload is wrapped in a bstr to ensure that it is transported without changes. "
     byte *payload_buf;
     char* payload_hex = "684869207468657265"; // CBOR encoded text "Hi there"
     size_t payload_len = hexstring_to_buffer(&payload_buf, payload_hex, strlen(payload_hex));
     bytes payload = {payload_buf, payload_len};   
     
     // Encode protected header
+    /*
     uint8_t protected_buf[512];
     size_t protected_len;
-    cose_protected_header protected_header = {
+    cose_header protected_header = {
         .alg = COSE_ALG_HMAC_256};    
     cose_encode_protected_header(
         &protected_header,
@@ -33,12 +35,14 @@ int main(int argc, char *argv[])
         512,
         &protected_len
     );
-    bytes protected = {protected_buf, protected_len};    
+    */
+    bytes protected = {NULL, 0};    
 
     cose_sign1_mac_msg msg = {
         .payload = payload,
         .protected_header = protected,
-        .unprotected_header = {NULL, 0}
+        .unprotected_header = {
+        .alg = COSE_ALG_HMAC_256}
     };    
     
     byte out_buf[512];
@@ -55,9 +59,5 @@ int main(int argc, char *argv[])
     );
 
     // Print result
-    for (int i = 0; i < out_len; i++)
-    {
-        printf("%02x", out_buf[i]);
-    }
-    printf("\n");      
+    phex(out_buf, out_len);
 }
