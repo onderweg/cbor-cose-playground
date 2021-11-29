@@ -6,7 +6,6 @@
 #include <wolfssl/options.h>
 #include <wolfssl/wolfcrypt/ecc.h>
 #include <wolfssl/wolfcrypt/hmac.h>
-#include <wolfssl/wolfcrypt/sha256.h>
 
 #include "cose.h"
 #include "utils.h"
@@ -90,20 +89,20 @@ void cose_encode_header(CborEncoder *enc, cose_header *hdr) {
 /**
  * Decodes COSE protected header (CBOR 'bstr' type) to a struct
  */
-void cose_decode_protected_header(bytes *protected, cose_header *out) {
+cose_result cose_decode_protected_header(bytes *protected, cose_header *out) {
     CborParser parser;
     CborValue cborValue;
     cbor_parser_init(protected->buf, protected->len, 0, &parser, &cborValue);
-    cose_decode_header(&cborValue, out);
+    return cose_decode_header(&cborValue, out);
 }
 
 /**
  * Decodes a COSE header (CBOR map) into a struct.
  * (Both protected and unprotected maps use the same set of label/value pairs. )
  */
-void cose_decode_header(CborValue *cborValue, cose_header *out) {
+cose_result cose_decode_header(CborValue *cborValue, cose_header *out) {
     if (!cbor_value_is_container(cborValue)) {
-        return; // @TODO: better error handling
+        return cose_err_unexpected;
     }
     CborValue map;
     cbor_value_enter_container(cborValue, &map);
@@ -111,7 +110,7 @@ void cose_decode_header(CborValue *cborValue, cose_header *out) {
     while (!cbor_value_at_end(&map)) {
         // We expect integer keys in the protected header
         if (!cbor_value_is_integer(&map)) {
-            return;
+            return cose_err_unexpected;
         }
         // Get key
         cbor_value_get_int_checked(&map, &key);
@@ -128,6 +127,7 @@ void cose_decode_header(CborValue *cborValue, cose_header *out) {
         }
     }
     cbor_value_leave_container(cborValue, &map);
+    return cose_ok;
 }
 
 /**
@@ -177,18 +177,30 @@ int verify_es256(bytes *to_verify, bytes *signature, ecc_key *key) {
 }
 
 /**
- * Decode sign1/mac0 message and calculate bytes to be verified
+ * Decode sign1/mac0 tagged message and calculate bytes to be verified
+ * 
+ * Type type is derived from the optional tag in the message. If the message is untagged,
+ * type provided in the out structure is being used.
  */
-void cose_decode_sign1_mac0(bytes *sign1, bytes *external_aad,
+cose_result cose_decode_sign1_mac0(bytes *sign1, bytes *external_aad,
     uint8_t *calculated_sig_buf, size_t calculated_sig_size,
-    cose_sign1_mac_msg *out) {    
+    cose_sign1_mac_msg *out) {
+
     CborParser parser;
     CborValue val;
     cbor_parser_init(sign1->buf, sign1->len, 0, &parser, &val);
 
-    CborTag tag;
-    cbor_value_get_tag(&val, &tag);
-    cbor_value_advance(&val);
+    // Validate
+    CborError err = cbor_value_validate(&val, 0);
+    if(err != CborNoError) {
+        return cose_err_cbor_invalid;
+    }
+
+    CborTag tag = out->tag;
+    if (cbor_value_is_tag(&val)) { // tag is optional, if present, get tag
+        cbor_value_get_tag(&val, &tag);
+        cbor_value_advance(&val);
+    }
 
     CborValue e;
     cbor_value_enter_container(&val, &e);
@@ -240,13 +252,14 @@ void cose_decode_sign1_mac0(bytes *sign1, bytes *external_aad,
     out->unprotected_header = unprotected;
     out->signature = signature;
     out->to_verify = to_verify;
+    return cose_ok;
 }
 
 /**
  * Encode a COSE_Mac0 message
  */
-void cose_encode_mac0(cose_sign1_mac_msg *msg, bytes *secret,
-     uint8_t *out, size_t out_size, size_t *out_len) {
+cose_result cose_encode_mac0(cose_sign1_mac_msg *msg, bytes *secret, uint8_t *out,
+    size_t out_size, size_t *out_len) {
     uint8_t sign_buf[512];
     size_t sign_len = sizeof(sign_buf);
     bytes external_aad = {NULL, 0};
@@ -283,4 +296,5 @@ void cose_encode_mac0(cose_sign1_mac_msg *msg, bytes *secret,
 
     cbor_encoder_close_container(&enc, &ary);
     *out_len = cbor_encoder_get_buffer_size(&enc, out);
+    return cose_ok;
 }

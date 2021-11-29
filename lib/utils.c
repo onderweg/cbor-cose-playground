@@ -1,6 +1,4 @@
 #include "utils.h"
-#include <wolfssl/options.h>
-#include <wolfssl/wolfcrypt/types.h>
 
 size_t hexstring_to_buffer(byte **buffer, char *string, size_t string_len)
 {
