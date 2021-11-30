@@ -101,7 +101,7 @@ cose_result cose_decode_protected_header(bytes *protected, cose_header *out) {
  * (Both protected and unprotected maps use the same set of label/value pairs. )
  */
 cose_result cose_decode_header(CborValue *cborValue, cose_header *out) {
-    if (!cbor_value_is_container(cborValue)) {
+    if (!cbor_value_is_map(cborValue)) {
         return cose_err_unexpected;
     }
     CborValue map;
@@ -138,7 +138,6 @@ int verify_hmac(bytes *to_verify, bytes *signature, bytes *secret) {
     byte hmacDigest[SHA256_DIGEST_SIZE];
 
     wc_HmacSetKey(&hmac, WC_SHA256, secret->buf, secret->len);
-
     wc_HmacUpdate(&hmac, to_verify->buf, to_verify->len);
     wc_HmacFinal(&hmac, hmacDigest);
 
@@ -243,6 +242,8 @@ cose_result cose_decode_sign1_mac0(bytes *sign1, bytes *external_aad,
             calculated_sig_buf,
             calculated_sig_size,
             &to_verify_len);
+    } else {
+        return cose_err_unsupported;
     }
     bytes to_verify = (bytes){calculated_sig_buf, to_verify_len};
 

@@ -10,9 +10,10 @@
 typedef int32_t cose_result;
 
 typedef enum cose_result_t {
-    cose_ok = 0, // no error
+    cose_ok = 0,               // no error
     cose_err_cbor_invalid = 1, // error in cbor validation
-    cose_err_unexpected = 2 // unexpected value in cose structure
+    cose_err_unsupported = 2,  // unsupported operation
+    cose_err_unexpected = 3    // unexpected value in cose structure
 } cose_result_t;
 
 typedef struct bytes {
@@ -54,8 +55,8 @@ cose_result cose_decode_sign1_mac0(bytes *sign1, bytes *external_aad,
     uint8_t *calculated_sig_buf, size_t calculated_sig_size,
     cose_sign1_mac_msg *out);
 
-cose_result cose_encode_mac0(cose_sign1_mac_msg *msg, bytes *secret, uint8_t *out,
-    size_t out_size, size_t *out_len);
+cose_result cose_encode_mac0(cose_sign1_mac_msg *msg, bytes *secret,
+    uint8_t *out, size_t out_size, size_t *out_len);
 
 int verify_hmac(bytes *to_verify, bytes *signature, bytes *secret);
 int verify_es256(bytes *to_verify, bytes *signature, ecc_key *key);
