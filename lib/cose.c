@@ -64,6 +64,11 @@ void cose_encode_sig_structure(const char *context, bytes *body_protected,
     *out_len = cbor_encoder_get_buffer_size(&enc, out);
 }
 
+void cose_init_header(cose_header *out) {
+    out->alg = 0;
+    out->content_type = 0;
+}
+
 /**
  * Encodes a protected header to a CBOR 'bstr' from a struct
  */
@@ -115,8 +120,7 @@ cose_result cose_decode_header(CborValue *cborValue, cose_header *out) {
         // Get key
         cbor_value_get_int_checked(&map, &key);
         cbor_value_advance_fixed(&map);
-        if (key == 1) // alg
-        {
+        if (key == 1) { // alg
             cbor_value_get_int_checked(&map, &out->alg);
             cbor_value_advance_fixed(&map);
         } else if (key == 3) { // content type
@@ -164,22 +168,21 @@ int verify_es256(bytes *to_verify, bytes *signature, ecc_key *key) {
     wc_Sha256Update(&sha, to_verify->buf, (word32)to_verify->len);
     wc_Sha256Final(&sha, digest);
     // Verify
-    int ret, verified = 0;
-    ret = wc_ecc_verify_hash(signature->buf,
+    int verified = 0;
+    wc_ecc_verify_hash(signature->buf,
         (word32)signature->len,
         digest,
         sizeof(digest),
         &verified,
-        key);
-
+        key);    
     return verified;
 }
 
 /**
  * Decode sign1/mac0 tagged message and calculate bytes to be verified
- * 
- * Type type is derived from the optional tag in the message. If the message is untagged,
- * type provided in the out structure is being used.
+ *
+ * Type type is derived from the optional tag in the message. If the message is
+ * untagged, type provided in the out structure is being used.
  */
 cose_result cose_decode_sign1_mac0(bytes *sign1, bytes *external_aad,
     uint8_t *calculated_sig_buf, size_t calculated_sig_size,
@@ -191,7 +194,7 @@ cose_result cose_decode_sign1_mac0(bytes *sign1, bytes *external_aad,
 
     // Validate
     CborError err = cbor_value_validate(&val, 0);
-    if(err != CborNoError) {
+    if (err != CborNoError) {
         return cose_err_cbor_invalid;
     }
 
@@ -259,16 +262,15 @@ cose_result cose_decode_sign1_mac0(bytes *sign1, bytes *external_aad,
 /**
  * Encode a COSE_Mac0 message
  */
-cose_result cose_encode_mac0(cose_sign1_mac_msg *msg, bytes *secret, uint8_t *out,
-    size_t out_size, size_t *out_len) {
+cose_result cose_encode_mac0(cose_sign1_mac_msg *msg, bytes *external_aad, bytes *secret,
+    uint8_t *out, size_t out_size, size_t *out_len) {
     uint8_t sign_buf[512];
     size_t sign_len = sizeof(sign_buf);
-    bytes external_aad = {NULL, 0};
 
     // Create MAC structure and encode it
     cose_encode_mac_structure("MAC0",
         &msg->protected_header,
-        &external_aad,
+        external_aad,
         &msg->payload,
         sign_buf,
         sizeof(sign_buf),

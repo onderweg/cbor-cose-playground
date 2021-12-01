@@ -44,6 +44,8 @@ typedef struct cose_sign1_mac_msg {
     bytes to_verify;
 } cose_sign1_mac_msg;
 
+void cose_init_header(cose_header *out);
+
 void cose_encode_protected_header(
     cose_header *hdr, uint8_t *out, size_t out_size, size_t *out_len);
 void cose_encode_header(CborEncoder *enc, cose_header *hdr);
@@ -55,8 +57,8 @@ cose_result cose_decode_sign1_mac0(bytes *sign1, bytes *external_aad,
     uint8_t *calculated_sig_buf, size_t calculated_sig_size,
     cose_sign1_mac_msg *out);
 
-cose_result cose_encode_mac0(cose_sign1_mac_msg *msg, bytes *secret,
-    uint8_t *out, size_t out_size, size_t *out_len);
+cose_result cose_encode_mac0(cose_sign1_mac_msg *msg, bytes *external_aad,
+    bytes *secret, uint8_t *out, size_t out_size, size_t *out_len);
 
 int verify_hmac(bytes *to_verify, bytes *signature, bytes *secret);
 int verify_es256(bytes *to_verify, bytes *signature, ecc_key *key);

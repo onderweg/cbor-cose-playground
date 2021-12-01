@@ -39,8 +39,8 @@ void verify_mac0() {
     cose_decode_sign1_mac0(&msg_bytes, NULL, to_verify_buf, sizeof(to_verify_buf), &signed_msg);   
 
     // Parse protected header    
-    cose_header protected_header = {
-        .alg = 0};
+    cose_header protected_header;
+    cose_init_header(&protected_header);
     cose_decode_protected_header(&signed_msg.protected_header, &protected_header);    
 
     printf("CBOR tag: %llu\n", signed_msg.tag);

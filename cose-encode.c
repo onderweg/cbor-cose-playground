@@ -44,15 +44,18 @@ int main(int argc, char *argv[])
         .protected_header = protected,
         .unprotected_header = {
         .alg = COSE_ALG_HMAC_256}
-    };    
+    };
+
+    bytes external_aad = {NULL, 0};
     
     byte out_buf[512];
     size_t out_size = sizeof(out_buf);
     size_t out_len;
 
     cose_encode_mac0(
-        &msg, 
-        &secret,         
+        &msg,
+        &external_aad,
+        &secret,       
         out_buf, 
         out_size, 
         &out_len
