@@ -15,9 +15,9 @@
  * See:
  * https://www.ietf.org/id/draft-ietf-cose-rfc8152bis-struct-15.html#name-how-to-compute-and-verify-a
  */
-void cose_encode_mac_structure(const char *context, bytes *body_protected,
-    bytes *external_aad, bytes *payload, uint8_t *out, size_t out_size,
-    size_t *out_len) {
+cose_result cose_encode_mac_structure(const char *context,
+    bytes *body_protected, bytes *external_aad, bytes *payload, uint8_t *out,
+    size_t out_size, size_t *out_len) {
     CborEncoder enc;
     cbor_encoder_init(&enc, out, out_size, 0);
 
@@ -33,8 +33,12 @@ void cose_encode_mac_structure(const char *context, bytes *body_protected,
     }
     cbor_encode_byte_string(&ary, payload->buf, payload->len);
 
-    cbor_encoder_close_container(&enc, &ary);
+    CborError err = cbor_encoder_close_container(&enc, &ary);
+    if (err == CborErrorOutOfMemory) {
+        return cose_err_out_of_memory;
+    }
     *out_len = cbor_encoder_get_buffer_size(&enc, out);
+    return cose_ok;
 }
 
 /**
@@ -42,9 +46,9 @@ void cose_encode_mac_structure(const char *context, bytes *body_protected,
  * See:
  * https://www.ietf.org/id/draft-ietf-cose-rfc8152bis-struct-15.html#name-signing-and-verification-pr
  */
-void cose_encode_sig_structure(const char *context, bytes *body_protected,
-    bytes *external_aad, bytes *payload, uint8_t *out, size_t out_size,
-    size_t *out_len) {
+cose_result cose_encode_sig_structure(const char *context,
+    bytes *body_protected, bytes *external_aad, bytes *payload, uint8_t *out,
+    size_t out_size, size_t *out_len) {
     CborEncoder enc;
     cbor_encoder_init(&enc, out, out_size, 0);
 
@@ -60,8 +64,12 @@ void cose_encode_sig_structure(const char *context, bytes *body_protected,
     }
     cbor_encode_byte_string(&ary, payload->buf, payload->len);
 
-    cbor_encoder_close_container(&enc, &ary);
+    CborError err = cbor_encoder_close_container(&enc, &ary);
+    if (err == CborErrorOutOfMemory) {
+        return cose_err_out_of_memory;
+    }
     *out_len = cbor_encoder_get_buffer_size(&enc, out);
+    return cose_ok;
 }
 
 void cose_init_header(cose_header *out) {
@@ -160,21 +168,26 @@ int verify_hmac(bytes *to_verify, bytes *signature, bytes *secret) {
 /**
  * Verify ES256 (SHA256 with ECDSA) signature.
  */
-int verify_es256(bytes *to_verify, bytes *signature, ecc_key *key) {
+int verify_es256(bytes *to_verify, bytes *signature, ecc_key *key) {    
     // Compute digest
     Sha256 sha;
     byte digest[SHA256_DIGEST_SIZE];
     wc_InitSha256(&sha);
-    wc_Sha256Update(&sha, to_verify->buf, (word32)to_verify->len);
-    wc_Sha256Final(&sha, digest);
+    int res = wc_Sha256Update(&sha, to_verify->buf, (word32)to_verify->len);
+    assert(res == 0);
+    res = wc_Sha256Final(&sha, digest);
+    assert(res == 0);
     // Verify
     int verified = 0;
-    wc_ecc_verify_hash(signature->buf,
+    res = wc_ecc_verify_hash(
+        signature->buf,
         (word32)signature->len,
         digest,
         sizeof(digest),
         &verified,
-        key);    
+        key);
+    
+    //assert(res == 0);
     return verified;
 }
 
@@ -229,16 +242,16 @@ cose_result cose_decode_sign1_mac0(bytes *sign1, bytes *external_aad,
 
     // Calculate bytes to verify.
     size_t to_verify_len = 0;
-    if (tag == CborCOSE_Sign1Tag) {
-        cose_encode_sig_structure("Signature1",
+    if (tag == CborCOSE_Sign1Tag) {        
+        err = cose_encode_sig_structure("Signature1",
             &protected,
             external_aad,
             &payload,
             calculated_sig_buf,
             calculated_sig_size,
             &to_verify_len);
-    } else if (tag == CborCOSE_Mac0Tag) {
-        cose_encode_mac_structure("MAC0",
+    } else if (tag == CborCOSE_Mac0Tag) {        
+        err = cose_encode_mac_structure("MAC0",
             &protected,
             external_aad,
             &payload,
@@ -248,6 +261,8 @@ cose_result cose_decode_sign1_mac0(bytes *sign1, bytes *external_aad,
     } else {
         return cose_err_unsupported;
     }
+    if (err != cose_ok)
+        return err;
     bytes to_verify = (bytes){calculated_sig_buf, to_verify_len};
 
     out->tag = tag;
@@ -262,8 +277,8 @@ cose_result cose_decode_sign1_mac0(bytes *sign1, bytes *external_aad,
 /**
  * Encode a COSE_Mac0 message
  */
-cose_result cose_encode_mac0(cose_sign1_mac_msg *msg, bytes *external_aad, bytes *secret,
-    uint8_t *out, size_t out_size, size_t *out_len) {
+cose_result cose_encode_mac0(cose_sign1_mac_msg *msg, bytes *external_aad,
+    bytes *secret, uint8_t *out, size_t out_size, size_t *out_len) {
     uint8_t sign_buf[512];
     size_t sign_len = sizeof(sign_buf);
 
