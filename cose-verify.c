@@ -80,11 +80,7 @@ void verify_sign1() {
     // Example ES256 signed COSE message
     // Source:
     // https://github.com/cose-wg/Examples/blob/3221310e2cf50ad13213daa7ca278209a8bc85fd/sign1-tests/sign-pass-01.json
-    char *msg_hex =
-        "d28443a10126a10442313154546869732069732074686520636f6e74656e"
-"742e58408eb33e4ca31d1c465ab05aac34cc6b23d58fef5c083106c4d25a"
-"91aef0b0117e2af9a291aa32e14ab834dc56ed2a223444547e01f11d3b09"
-"16e5a4c345cacb36";
+    char *msg_hex = "D28441A0A201260442313154546869732069732074686520636F6E74656E742E584087DB0D2E5571843B78AC33ECB2830DF7B6E0A4D5B7376DE336B23C591C90C425317E56127FBE04370097CE347087B233BF722B64072BEB4486BDA4031D27244F";
 
     // Convert message hex to bytes
     size_t msg_len = hexstring_to_buffer(&msg_buf, msg_hex, strlen(msg_hex));
@@ -105,10 +101,19 @@ void verify_sign1() {
     printf("Signature type in protected header: %i\n",
         decoded_protected_header.alg);        
 
+    char *to_be_signed_hex;
+    buffer_to_hexstring(&to_be_signed_hex, signed_msg.to_verify.buf, signed_msg.to_verify.len);
+    printf("To Be Signed hex: %s\n", to_be_signed_hex);
+
+    char *signature_hex;
+    buffer_to_hexstring(&signature_hex, signed_msg.signature.buf, signed_msg.signature.len);
+    printf("Signature in message: %s\n", signature_hex);    
+
     char *sig_hex;
     buffer_to_hexstring(&sig_hex, signed_msg.signature.buf, signed_msg.signature.len);
 
-    if (decoded_protected_header.alg == COSE_ALG_ES256) {
+    if (decoded_protected_header.alg == COSE_ALG_ES256 ||
+    signed_msg.unprotected_header.alg == COSE_ALG_ES256) {
         int verified =
             verify_rs_es256(&signed_msg.to_verify,sig_hex, &RS_ID);
         printf("Verified: %s (%i)\n", verified == 1 ? "YES" : "NO", verified);

@@ -25,6 +25,7 @@ cose_result cose_encode_mac_structure(const char *context,
     cbor_encoder_create_array(&enc, &ary, 4);
 
     cbor_encode_text_stringz(&ary, context);
+
     cbor_encode_byte_string(&ary, body_protected->buf, body_protected->len);
     if (external_aad != NULL) {
         cbor_encode_byte_string(&ary, external_aad->buf, external_aad->len);
@@ -54,14 +55,24 @@ cose_result cose_encode_sig_structure(const char *context,
 
     CborEncoder ary;
     cbor_encoder_create_array(&enc, &ary, 4);
-
     cbor_encode_text_stringz(&ary, context);
-    cbor_encode_byte_string(&ary, body_protected->buf, body_protected->len);
+    // Encode protected header
+    if (body_protected->len > 0 && body_protected->buf[0] == 0xa0) {
+        // Senders SHOULD encode a zero-length map as a zero-
+        // length string rather than as a zero-length map (encoded as h'a0')        
+        cbor_encode_byte_string(&ary, NULL, 0);
+    } else {
+        cbor_encode_byte_string(&ary, body_protected->buf, body_protected->len);
+    }
+
+    // Encode external aad
     if (external_aad != NULL) {
         cbor_encode_byte_string(&ary, external_aad->buf, external_aad->len);
     } else {
         cbor_encode_byte_string(&ary, NULL, 0);
     }
+
+    // Encode payload
     cbor_encode_byte_string(&ary, payload->buf, payload->len);
 
     CborError err = cbor_encoder_close_container(&enc, &ary);
@@ -103,6 +114,7 @@ void cose_encode_header(CborEncoder *enc, cose_header *hdr) {
  * Decodes COSE protected header (CBOR 'bstr' type) to a struct
  */
 cose_result cose_decode_protected_header(bytes *protected, cose_header *out) {
+    cose_init_header(out);
     CborParser parser;
     CborValue cborValue;
     cbor_parser_init(protected->buf, protected->len, 0, &parser, &cborValue);
@@ -174,8 +186,16 @@ int verify_hmac(bytes *to_verify, bytes *signature, bytes *secret) {
  * Returns 1 when signature is valid, 0 if invalid
  */
 int verify_rs_es256(bytes *to_verify, char *sig_hex, ecc_key *public_key) {
-    int sig_len = strlen(sig_hex);
-    // sig = { r: sig.slice(0, sig.length / 2), s: sig.slice(sig.length / 2) };
+    assert (sig_hex != NULL);
+    int key_size = wc_ecc_size(public_key);
+    // Check signature length  
+    // Signature is R and L concatenated, so length sould be 2 * key size.
+    // imes 2 (because hex encoded: 2 chars per byte)
+    assert(
+        strlen(sig_hex) == 2*2*key_size
+    );
+
+    int sig_len = strlen(sig_hex);    
     // Split hex string into R and S components.
     char r[256];
     char s[256];
@@ -187,7 +207,7 @@ int verify_rs_es256(bytes *to_verify, char *sig_hex, ecc_key *public_key) {
     int res = wc_ecc_rs_to_sig(r, s, der_sig_buf, &der_sig_len);
     assert(res == 0);
     bytes der_sig = {der_sig_buf, der_sig_len};
-    return verify_es256(to_verify, &der_sig, public_key);
+    return verify_der_es256(to_verify, &der_sig, public_key);
 }
 
 /**
@@ -196,7 +216,7 @@ int verify_rs_es256(bytes *to_verify, char *sig_hex, ecc_key *public_key) {
  *
  * Returns 1 when signature is valid, 0 if invalid
  */
-int verify_es256(bytes *to_verify, bytes *signature, ecc_key *public_key) {
+int verify_der_es256(bytes *to_verify, bytes *signature, ecc_key *public_key) {
     // Compute digest
     Sha256 sha;
     byte digest[SHA256_DIGEST_SIZE];
@@ -250,8 +270,9 @@ cose_result cose_decode_sign1_mac0(bytes *sign1, bytes *external_aad,
     bytes protected;
     cbor_value_dup_byte_string(&e, &protected.buf, &protected.len, &e);
 
-    // Get unprotected header (CBOR 'map' type), if not empty
-    cose_header unprotected = {.alg = 0};
+    // Get unprotected header (CBOR 'map' type), if not empty 
+    cose_header unprotected;   
+    cose_init_header(&unprotected);
     if (cbor_value_is_map(&e)) {
         cose_decode_header(&e, &unprotected);
     } else {

@@ -63,6 +63,6 @@ cose_result cose_encode_mac0(cose_sign1_mac_msg *msg, bytes *external_aad,
 
 int verify_hmac(bytes *to_verify, bytes *signature, bytes *secret);
 int verify_rs_es256(bytes *to_verify, char* sig_hex, ecc_key *public_key);
-int verify_es256(bytes *to_verify, bytes *signature, ecc_key *public_key);
+int verify_der_es256(bytes *to_verify, bytes *signature, ecc_key *public_key);
 
 #endif // ONDERWEG_COSE_H
