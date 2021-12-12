@@ -182,7 +182,7 @@ int verify_rs_es256(bytes *to_verify, char *sig_hex, ecc_key *public_key) {
     slice_str((const char *)sig_hex, r, 0, (sig_len / 2) - 1);
     slice_str((const char *)sig_hex, s, sig_len / 2, sig_len + 1);
     // Convert R and S components into a DER-encoded ECDSA signature.
-    byte der_sig_buf[256];
+    byte der_sig_buf[512];
     word32 der_sig_len = sizeof(der_sig_buf);
     int res = wc_ecc_rs_to_sig(r, s, der_sig_buf, &der_sig_len);
     assert(res == 0);
