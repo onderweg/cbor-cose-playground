@@ -16,6 +16,7 @@ The following libraries are used:
 
 - [tinycbor](https://github.com/intel/tinycbor) - "TinyCBOR is Intel's industrial strength C/C++ implementation of CBOR"
 - [wolfssl](https://www.wolfssl.com/) - "lightweight, portable, C-language-based SSL/TLS library targeted at IoT, embedded, and RTOS environments".
+    - On Mac: `brew install wolfssl`
 
 ## Disclaimer
 

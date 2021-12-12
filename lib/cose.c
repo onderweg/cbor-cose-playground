@@ -187,7 +187,7 @@ int verify_es256(bytes *to_verify, bytes *signature, ecc_key *key) {
         &verified,
         key);
     
-    //assert(res == 0);
+    //assert(res == 0); // @TODO: Always returns -171 (ASN_ECC_KEY_E) for unknown reasons.
     return verified;
 }
 

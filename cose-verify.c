@@ -64,8 +64,7 @@ void verify_sign1() {
     rs_key RS_ID_ = {
         .x = "bac5b11cad8f99f9c72b05cf4b9e26d244dc189f745228255a219a86d6a09eff",
         .y = "20138bf82dc1b6d562be0fa54ab7804a3a64b6d72ccfed6b6fb6ed28bbfc117e",
-        .d = NULL, // "57c92077664146e876760c9520d054aa93c3afb04e306705db6090308507b4d3",
-                   // // private key
+        .d = NULL, // "57c92077664146e876760c9520d054aa93c3afb04e306705db6090308507b4d3", // private key                  
         .curve_id = ECC_SECP256R1};
     wc_ecc_import_raw_ex(&RS_ID, RS_ID_.x, RS_ID_.y, RS_ID_.d, RS_ID_.curve_id);
 
