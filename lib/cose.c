@@ -143,7 +143,9 @@ cose_result cose_decode_header(CborValue *cborValue, cose_header *out) {
 }
 
 /**
- * Compare calculated HMAC 256 signature to provided signature
+ * Compare calculated HMAC 256 signature to provided signature.
+ *
+ * Returns 1 when signature is valid, 0 if invalid
  */
 int verify_hmac(bytes *to_verify, bytes *signature, bytes *secret) {
     Hmac hmac;
@@ -162,13 +164,39 @@ int verify_hmac(bytes *to_verify, bytes *signature, bytes *secret) {
     printf("Embeded Signature: %s\n", y);
 
     int ret = memcmp(hmacDigest, signature->buf, SHA256_DIGEST_SIZE);
-    return ret;
+    return (ret == 0);
 }
 
 /**
  * Verify ES256 (SHA256 with ECDSA) signature.
+ * Signature is expected to be hex string, with concatened R and S components.
+ *
+ * Returns 1 when signature is valid, 0 if invalid
  */
-int verify_es256(bytes *to_verify, bytes *signature, ecc_key *key) {    
+int verify_rs_es256(bytes *to_verify, char *sig_hex, ecc_key *public_key) {
+    int sig_len = strlen(sig_hex);
+    // sig = { r: sig.slice(0, sig.length / 2), s: sig.slice(sig.length / 2) };
+    // Split hex string into R and S components.
+    char r[256];
+    char s[256];
+    slice_str((const char *)sig_hex, r, 0, (sig_len / 2) - 1);
+    slice_str((const char *)sig_hex, s, sig_len / 2, sig_len + 1);
+    // Convert R and S components into a DER-encoded ECDSA signature.
+    byte der_sig_buf[256];
+    word32 der_sig_len = sizeof(der_sig_buf);
+    int res = wc_ecc_rs_to_sig(r, s, der_sig_buf, &der_sig_len);
+    assert(res == 0);
+    bytes der_sig = {der_sig_buf, der_sig_len};
+    return verify_es256(to_verify, &der_sig, public_key);
+}
+
+/**
+ * Verify ES256 (SHA256 with ECDSA) signature.
+ * Signature is expected to be DER-encoded ECDSA ASN format.
+ *
+ * Returns 1 when signature is valid, 0 if invalid
+ */
+int verify_es256(bytes *to_verify, bytes *signature, ecc_key *public_key) {
     // Compute digest
     Sha256 sha;
     byte digest[SHA256_DIGEST_SIZE];
@@ -179,15 +207,13 @@ int verify_es256(bytes *to_verify, bytes *signature, ecc_key *key) {
     assert(res == 0);
     // Verify
     int verified = 0;
-    res = wc_ecc_verify_hash(
-        signature->buf,
-        (word32)signature->len,
+    res = wc_ecc_verify_hash((const byte *)signature->buf,
+        signature->len,
         digest,
         sizeof(digest),
         &verified,
-        key);
-    
-    //assert(res == 0); // @TODO: Always returns -171 (ASN_ECC_KEY_E) for unknown reasons.
+        public_key);
+    assert(res ==0); 
     return verified;
 }
 
@@ -242,7 +268,7 @@ cose_result cose_decode_sign1_mac0(bytes *sign1, bytes *external_aad,
 
     // Calculate bytes to verify.
     size_t to_verify_len = 0;
-    if (tag == CborCOSE_Sign1Tag) {        
+    if (tag == CborCOSE_Sign1Tag) {
         err = cose_encode_sig_structure("Signature1",
             &protected,
             external_aad,
@@ -250,7 +276,7 @@ cose_result cose_decode_sign1_mac0(bytes *sign1, bytes *external_aad,
             calculated_sig_buf,
             calculated_sig_size,
             &to_verify_len);
-    } else if (tag == CborCOSE_Mac0Tag) {        
+    } else if (tag == CborCOSE_Mac0Tag) {
         err = cose_encode_mac_structure("MAC0",
             &protected,
             external_aad,
