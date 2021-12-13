@@ -8,6 +8,7 @@
 #include <cbor.h>
 
 #include "lib/cose.h"
+#include "lib/ecdsa.h"
 #include "lib/utils.h"
 
 typedef struct rs_key {

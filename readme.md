@@ -18,6 +18,10 @@ The following libraries are used:
 - [wolfssl](https://www.wolfssl.com/) - "lightweight, portable, C-language-based SSL/TLS library targeted at IoT, embedded, and RTOS environments".
     - On Mac: `brew install wolfssl`
 
+## Notes
+
+- Currently only works with Sign1 and Mac0 COSE messages.
+
 ## Disclaimer
 
 This repo is just a playground. It might come in handy for others to look into as reference or as example material (I did not find a lot of examples of COSE handling in C).
