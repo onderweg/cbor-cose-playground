@@ -43,7 +43,10 @@ int main(int argc, char *argv[]) {
     cose_sign1_mac_msg msg = {
         .payload = payload,
         .protected_header = protected,
-        .unprotected_header = {.alg = COSE_ALG_HMAC_256},
+        .unprotected_header =
+            {
+                .alg = COSE_ALG_HMAC_256,
+            },
     };
 
     bytes external_aad = {NULL, 0};
@@ -55,5 +58,6 @@ int main(int argc, char *argv[]) {
     cose_encode_mac0(&msg, &external_aad, &secret, out_buf, out_size, &out_len);
 
     // Print result
+    printf("mac0 message with HMAC signature:\n");
     phex(out_buf, out_len);
 }
