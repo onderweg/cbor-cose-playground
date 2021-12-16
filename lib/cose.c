@@ -4,9 +4,12 @@
 #include <cbor.h>
 
 #include <wolfssl/options.h>
+#include <wolfssl/wolfcrypt/ecc.h>
 #include <wolfssl/wolfcrypt/hmac.h>
+#include <wolfssl/wolfcrypt/integer.h> // mp_toraw
 
 #include "cose.h"
+#include "ecdsa.h"
 #include "utils.h"
 
 /**
@@ -58,16 +61,16 @@ cose_result cose_encode_sig_structure(const char *context,
     // Encode protected header
     if (body_protected->len > 0 && body_protected->buf[0] == 0xa0) {
         // Senders SHOULD encode a zero-length map as a zero-
-        // length string rather than as a zero-length map (encoded as h'a0')        
+        // length string rather than as a zero-length map (encoded as h'a0')
         cbor_encode_byte_string(&ary, NULL, 0);
     } else {
         cbor_encode_byte_string(&ary, body_protected->buf, body_protected->len);
     }
 
     // Encode external aad
-    if (external_aad != NULL) {
+    if (external_aad != NULL) {        
         cbor_encode_byte_string(&ary, external_aad->buf, external_aad->len);
-    } else {
+    } else {        
         cbor_encode_byte_string(&ary, NULL, 0);
     }
 
@@ -90,7 +93,7 @@ void cose_init_header(cose_header *out) {
 /**
  * Encodes a protected header to a CBOR 'bstr' from a struct
  */
-void cose_encode_protected_header(
+void cose_encode_header_bytes(
     cose_header *hdr, uint8_t *out, size_t out_size, size_t *out_len) {
     CborEncoder enc;
     cbor_encoder_init(&enc, out, out_size, 0);
@@ -102,11 +105,21 @@ void cose_encode_protected_header(
  * Encodes a protected header from a struct
  */
 void cose_encode_header(CborEncoder *enc, cose_header *hdr) {
-    CborEncoder map;
-    cbor_encoder_create_map(enc, &map, 1);
-    cbor_encode_int(&map, 1);
-    cbor_encode_int(&map, hdr->alg);
-    cbor_encoder_close_container(enc, &map);
+    CborEncoder map;    
+    if (hdr == NULL || hdr->alg ==0) {
+        cbor_encoder_create_map(enc, &map, 0);
+        cbor_encoder_close_container(enc, &map);    
+        return;
+
+    }    
+    cbor_encoder_create_map(enc, &map, 1); // length not yet determined    
+    if (hdr != NULL) {
+           
+            cbor_encode_int(&map, 1);
+            cbor_encode_int(&map, hdr->alg);
+     
+    }
+    cbor_encoder_close_container(enc, &map);    
 }
 
 /**
@@ -211,8 +224,8 @@ cose_result cose_decode_sign1_mac0(bytes *sign1, bytes *external_aad,
     bytes protected;
     cbor_value_dup_byte_string(&e, &protected.buf, &protected.len, &e);
 
-    // Get unprotected header (CBOR 'map' type), if not empty 
-    cose_header unprotected;   
+    // Get unprotected header (CBOR 'map' type), if not empty
+    cose_header unprotected;
     cose_init_header(&unprotected);
     if (cbor_value_is_map(&e)) {
         cose_decode_header(&e, &unprotected);
@@ -299,6 +312,62 @@ cose_result cose_encode_mac0(cose_sign1_mac_msg *msg, bytes *external_aad,
 
     cbor_encode_byte_string(&ary, msg->payload.buf, msg->payload.len);
     cbor_encode_byte_string(&ary, hmacDigest, SHA256_DIGEST_SIZE);
+
+    cbor_encoder_close_container(&enc, &ary);
+    *out_len = cbor_encoder_get_buffer_size(&enc, out);
+    return cose_ok;
+}
+
+cose_result cose_encode_sign1(cose_sign1_mac_msg *msg, bytes *external_aad,
+    ecc_key *private_key, uint8_t *out, size_t out_size, size_t *out_len) {
+    uint8_t to_sign_buf[512];
+    size_t to_sign_len = sizeof(to_sign_buf);
+
+    // Create MAC structure and encode it
+    cose_encode_sig_structure("Signature1",
+        &msg->protected_header,
+        external_aad,
+        &msg->payload,        
+        to_sign_buf,
+        sizeof(to_sign_buf),
+        &to_sign_len);
+
+    // Calculate signature
+    mp_int r; // destination for r component of signature.
+    mp_int s; // destination for s component of signature.
+    bytes to_sign = {to_sign_buf, to_sign_len};
+    sign_es256(&to_sign, private_key, &r, &s);
+
+    // Convert signature R, S components to binary string
+    int key_size = wc_ecc_size(private_key);
+    unsigned char buf_r[key_size];
+    unsigned char buf_s[key_size];
+    mp_to_unsigned_bin(&r, buf_r);
+    mp_to_unsigned_bin(&s, buf_s);
+
+    // Concat R, S binary strings into one binary string
+    byte signature[key_size * 2];
+    memcpy(signature, buf_r, key_size);
+    memcpy(signature + key_size, buf_s, key_size);
+
+    // Cleanup
+    mp_clear(&r);
+    mp_clear(&s);
+
+    CborEncoder enc;
+    cbor_encoder_init(&enc, out, out_size, 0);
+    cbor_encode_tag(&enc, CborCOSE_Sign1Tag);
+
+    CborEncoder ary;
+    cbor_encoder_create_array(&enc, &ary, 4);
+
+    cbor_encode_byte_string(
+        &ary, msg->protected_header.buf, msg->protected_header.len);
+    cose_encode_header(&ary, &msg->unprotected_header);
+
+    cbor_encode_byte_string(&ary, msg->payload.buf, msg->payload.len);
+
+    cbor_encode_byte_string(&ary, signature, key_size * 2);
 
     cbor_encoder_close_container(&enc, &ary);
     *out_len = cbor_encoder_get_buffer_size(&enc, out);

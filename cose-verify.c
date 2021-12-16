@@ -11,13 +11,6 @@
 #include "lib/ecdsa.h"
 #include "lib/utils.h"
 
-typedef struct rs_key {
-    char *x;
-    char *y;
-    char *d;
-    ecc_curve_id curve_id;
-} rs_key;
-
 void verify_mac0() {
     cose_sign1_mac_msg signed_msg;
     byte *msg_buf, *key_buf;
@@ -61,7 +54,7 @@ void verify_mac0() {
 void verify_sign1() {
     // Import key
     ecc_key RS_ID;
-    rs_key RS_ID_ = {
+    cose_ecc_key RS_ID_ = {
         .x = "bac5b11cad8f99f9c72b05cf4b9e26d244dc189f745228255a219a86d6a09eff",              
         .y = "20138bf82dc1b6d562be0fa54ab7804a3a64b6d72ccfed6b6fb6ed28bbfc117e",              
         .d = NULL, // "57c92077664146e876760c9520d054aa93c3afb04e306705db6090308507b4d3", // private key                  

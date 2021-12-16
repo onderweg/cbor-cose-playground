@@ -9,4 +9,6 @@
 int verify_rs_es256(bytes *to_verify, char* sig_hex, ecc_key *public_key);
 int verify_der_es256(bytes *to_verify, bytes *signature, ecc_key *public_key);
 
+void sign_es256(bytes *to_sign, ecc_key *private_key, mp_int *r, mp_int *s);
+
 #endif // ONDERWG_ECDSA_H
