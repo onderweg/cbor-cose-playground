@@ -25,6 +25,16 @@ typedef struct bytes {
     size_t len;
 } bytes;
 
+/**
+ * Cose header labels
+ */
+typedef enum cose_header_label {
+	cose_label_alg = 1,
+	cose_label_crit = 2,
+	cose_label_content_type = 3,
+	cose_label_KID = 4
+} cose_header_label;
+
 typedef struct cose_header {
     int alg;               // index 1
     uint64_t content_type; // index 3

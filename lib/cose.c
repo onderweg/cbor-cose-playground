@@ -152,10 +152,10 @@ cose_result cose_decode_header(CborValue *cborValue, cose_header *out) {
         // Get key
         cbor_value_get_int_checked(&map, &key);
         cbor_value_advance_fixed(&map);
-        if (key == 1) { // alg
+        if (key == cose_label_alg) { // alg
             cbor_value_get_int_checked(&map, &out->alg);
             cbor_value_advance_fixed(&map);
-        } else if (key == 3) { // content type
+        } else if (key == cose_label_content_type) { // content type
             cbor_value_get_uint64(&map, &out->content_type);
             cbor_value_advance_fixed(&map);
         } else {
