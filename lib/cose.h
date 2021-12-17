@@ -4,7 +4,6 @@
 #include <wolfssl/options.h>
 #include <wolfssl/wolfcrypt/ecc.h>
 
-
 #include <cbor.h>
 
 #define COSE_ALG_ES256 -7   // ECDSA w/ SHA-256
@@ -35,9 +34,30 @@ typedef enum cose_header_label {
 	cose_label_KID = 4
 } cose_header_label;
 
+/**
+ * Contains value of a cose header
+ */
+typedef union cose_header_value {
+   int as_int;
+   uint64_t as_int64;
+   bytes as_bstr;
+} cose_header_value;
+
+/**
+ * Represents a single item (label/value pair) in a COSE header map
+ */
+typedef struct cose_header_pair {
+    int label;
+    cose_header_value val;
+} cose_header_pair;
+
+/**
+ * Represents a COSE header map, with pairs stored in a dynamic (auto resized) array
+ */
 typedef struct cose_header {
-    int alg;               // index 1
-    uint64_t content_type; // index 3
+  cose_header_pair* pairs;
+  int capacity;
+  int size;
 } cose_header;
 
 /**
@@ -58,6 +78,9 @@ typedef struct cose_sign1_mac_msg {
     bytes to_verify;
 } cose_sign1_mac_msg;
 
+/**
+ * Contains components of a ECC key
+ */
 typedef struct cose_ecc_key {
     char *x;
     char *y;
@@ -65,7 +88,10 @@ typedef struct cose_ecc_key {
     ecc_curve_id curve_id;
 } cose_ecc_key;
 
-void cose_init_header(cose_header *out);
+void cose_header_init(cose_header* hdr);
+void cose_header_push(cose_header* hdr, int label, cose_header_value value);
+void cose_header_free(cose_header *hdr);
+cose_header_value* cose_header_get(cose_header* hdr, int label);
 
 void cose_encode_header_bytes(
     cose_header *hdr, uint8_t *out, size_t out_size, size_t *out_len);

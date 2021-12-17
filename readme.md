@@ -21,6 +21,10 @@ The following libraries are used:
 ## Notes
 
 - Currently only works with Sign1 and Mac0 COSE messages.
+- Design goals:
+    - Keep dynamic memory allocation (`malloc`, etc) to a minimum. Currently alloction is only used in:
+        - Results from `cbor_value_dup_byte_string`
+        - Member `pairs` of `cose_header` struct (implemented as dynamic array)
 
 ## Disclaimer
 

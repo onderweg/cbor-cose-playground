@@ -38,13 +38,15 @@ void verify_mac0() {
 
     // Parse protected header
     cose_header protected_header;
-    cose_init_header(&protected_header);
+    cose_header_init(&protected_header);
     cose_decode_protected_header(
         &signed_msg.protected_header, &protected_header);
 
+    cose_header_value *alg = cose_header_get(&protected_header, cose_label_alg);
+
     printf("CBOR tag: %llu\n", signed_msg.tag);
-    printf("Signature type in protected header: %i\n", protected_header.alg);
-    if (protected_header.alg == COSE_ALG_HMAC_256) {
+    printf("Signature type in protected header: %i\n", alg->as_int);
+    if (alg->as_int == COSE_ALG_HMAC_256) {
         int verified =
             verify_hmac(&signed_msg.to_verify, &signed_msg.signature, &key);
         printf("Verified: %s\n", verified == 1 ? "YES" : "NO");
@@ -55,9 +57,11 @@ void verify_sign1() {
     // Import key
     ecc_key RS_ID;
     cose_ecc_key RS_ID_ = {
-        .x = "bac5b11cad8f99f9c72b05cf4b9e26d244dc189f745228255a219a86d6a09eff",              
-        .y = "20138bf82dc1b6d562be0fa54ab7804a3a64b6d72ccfed6b6fb6ed28bbfc117e",              
-        .d = NULL, // "57c92077664146e876760c9520d054aa93c3afb04e306705db6090308507b4d3", // private key                  
+        .x = "bac5b11cad8f99f9c72b05cf4b9e26d244dc189f745228255a219a86d6a09eff",
+        .y = "20138bf82dc1b6d562be0fa54ab7804a3a64b6d72ccfed6b6fb6ed28bbfc117e",
+        .d =
+            NULL, // "57c92077664146e876760c9520d054aa93c3afb04e306705db6090308507b4d3",
+                  // // private key
         .curve_id = ECC_SECP256R1};
     wc_ecc_import_raw_ex(&RS_ID, RS_ID_.x, RS_ID_.y, RS_ID_.d, RS_ID_.curve_id);
 
@@ -74,7 +78,10 @@ void verify_sign1() {
     // Example ES256 signed COSE message
     // Source:
     // https://github.com/cose-wg/Examples/blob/3221310e2cf50ad13213daa7ca278209a8bc85fd/sign1-tests/sign-pass-01.json
-    char *msg_hex = "D28441A0A201260442313154546869732069732074686520636F6E74656E742E584087DB0D2E5571843B78AC33ECB2830DF7B6E0A4D5B7376DE336B23C591C90C425317E56127FBE04370097CE347087B233BF722B64072BEB4486BDA4031D27244F";
+    char *msg_hex =
+        "D28441A0A201260442313154546869732069732074686520636F6E74656E742E584087"
+        "DB0D2E5571843B78AC33ECB2830DF7B6E0A4D5B7376DE336B23C591C90C425317E5612"
+        "7FBE04370097CE347087B233BF722B64072BEB4486BDA4031D27244F";
 
     // Convert message hex to bytes
     size_t msg_len = hexstring_to_buffer(&msg_buf, msg_hex, strlen(msg_hex));
@@ -87,29 +94,42 @@ void verify_sign1() {
 
     // Decode protected header
     cose_header decoded_protected_header;
-    cose_decode_protected_header(&signed_msg.protected_header, &decoded_protected_header);   
+    cose_header_init(&decoded_protected_header);
+    cose_decode_protected_header(
+        &signed_msg.protected_header, &decoded_protected_header);
+
+    cose_header_value *alg_protected =
+        cose_header_get(&decoded_protected_header, cose_label_alg);
+    cose_header_value *alg_unprotected =
+        cose_header_get(&signed_msg.unprotected_header, cose_label_alg);
 
     printf("CBOR tag: %llu\n", signed_msg.tag);
-    printf("Signature type in unprotected header: %i\n",
-        signed_msg.unprotected_header.alg);
-    printf("Signature type in protected header: %i\n",
-        decoded_protected_header.alg);        
+    if (alg_protected != NULL) {
+        printf(
+            "Signature type in protected header: %i\n", alg_protected->as_int);
+    }
+    if (alg_unprotected != NULL) {
+        printf("Signature type in unprotected header: %i\n",
+            alg_unprotected->as_int);
+    }
 
     char *to_be_signed_hex;
-    buffer_to_hexstring(&to_be_signed_hex, signed_msg.to_verify.buf, signed_msg.to_verify.len);
+    buffer_to_hexstring(
+        &to_be_signed_hex, signed_msg.to_verify.buf, signed_msg.to_verify.len);
     printf("To Be Signed hex: %s\n", to_be_signed_hex);
 
     char *signature_hex;
-    buffer_to_hexstring(&signature_hex, signed_msg.signature.buf, signed_msg.signature.len);
-    printf("Signature in message: %s\n", signature_hex);    
+    buffer_to_hexstring(
+        &signature_hex, signed_msg.signature.buf, signed_msg.signature.len);
+    printf("Signature in message: %s\n", signature_hex);
 
     char *sig_hex;
-    buffer_to_hexstring(&sig_hex, signed_msg.signature.buf, signed_msg.signature.len);
+    buffer_to_hexstring(
+        &sig_hex, signed_msg.signature.buf, signed_msg.signature.len);
 
-    if (decoded_protected_header.alg == COSE_ALG_ES256 ||
-    signed_msg.unprotected_header.alg == COSE_ALG_ES256) {
-        int verified =
-            verify_rs_es256(&signed_msg.to_verify,sig_hex, &RS_ID);
+    if ((alg_protected != NULL && alg_protected->as_int == COSE_ALG_ES256) ||
+        (alg_unprotected != NULL && alg_unprotected->as_int == COSE_ALG_ES256)) {
+        int verified = verify_rs_es256(&signed_msg.to_verify, sig_hex, &RS_ID);
         printf("Verified: %s (%i)\n", verified == 1 ? "YES" : "NO", verified);
     }
 }

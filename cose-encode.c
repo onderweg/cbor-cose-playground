@@ -34,28 +34,23 @@ void encode_sign1() {
     bytes payload = {(uint8_t *)payload_str, strlen(payload_str)};
 
     // Encode protected header
+    cose_header protected_header;
+    cose_header_init(&protected_header);
+    cose_header_push(&protected_header,
+        cose_label_alg,
+        (cose_header_value){.as_int = COSE_ALG_ES256});
+    cose_header_push(&protected_header,
+        cose_label_KID,
+        (cose_header_value){.as_bstr = {(uint8_t *)"11", 2}});        
+
     uint8_t protected_buf[512];
-    size_t protected_len;
-    cose_header protected_header = {.alg = COSE_ALG_ES256};
+    size_t protected_len;        
     cose_encode_header_bytes(&protected_header,
         protected_buf,
         sizeof(protected_buf),
         &protected_len);
     bytes protected = {protected_buf, protected_len};
 
-    // Unprotected heaer
-    /*
-    uint8_t unprotected_buf[512];
-    size_t unprotected_len;
-    printf("+++\n");
-    cose_encode_header_bytes(
-        NULL,
-        unprotected_buf,
-        sizeof(unprotected_buf),
-        &unprotected_len);
-    printf("----\n");
-    bytes unprotected = {unprotected_buf, unprotected_len};
-    */
     cose_sign1_mac_msg msg = {
         .payload = payload,
         .protected_header = protected,
@@ -75,8 +70,7 @@ void encode_sign1() {
     phex(out_buf, out_len);
 }
 
-int main(int argc, char *argv[]) {
-    /*
+void encode_mac0() {
     byte secret_buf[] = {0xAB, 0xAC, 0xAD};
     size_t secret_size = sizeof(secret_buf);
     bytes secret = {secret_buf, secret_size};
@@ -90,29 +84,17 @@ int main(int argc, char *argv[]) {
         hexstring_to_buffer(&payload_buf, payload_hex, strlen(payload_hex));
     bytes payload = {payload_buf, payload_len};
 
-    // Encode protected header
-
-    // uint8_t protected_buf[512];
-    // size_t protected_len;
-    // cose_header protected_header = {
-    //     .alg = COSE_ALG_HMAC_256};
-    // cose_encode_protected_header(
-    //     &protected_header,
-    //     protected_buf,
-    //     512,
-    //     &protected_len
-    // );
-
+    // Unprotected header
+    cose_header unprotected_header;
+    cose_header_init(&unprotected_header);
+    cose_header_push(&unprotected_header,
+        cose_label_alg,
+        (cose_header_value){.as_int = COSE_ALG_HMAC_256});
     bytes protected = {NULL, 0};
 
-    cose_sign1_mac_msg msg = {
-        .payload = payload,
+    cose_sign1_mac_msg msg = {.payload = payload,
         .protected_header = protected,
-        .unprotected_header =
-            {
-                .alg = COSE_ALG_HMAC_256,
-            },
-    };
+        .unprotected_header = unprotected_header};
 
     bytes external_aad = {NULL, 0};
 
@@ -125,6 +107,9 @@ int main(int argc, char *argv[]) {
     // Print result
     printf("mac0 message with HMAC signature:\n");
     phex(out_buf, out_len);
-*/
+}
+
+int main(int argc, char *argv[]) {
+    encode_mac0();
     encode_sign1();
 }

@@ -12,6 +12,39 @@
 #include "ecdsa.h"
 #include "utils.h"
 
+void cose_header_init(cose_header *hdr) {
+    assert(hdr != NULL);
+    hdr->pairs = malloc(sizeof(cose_header_pair) * 5);    
+    hdr->size = 0;
+    hdr->capacity = 5; // initial capacity
+}
+
+void cose_header_push(cose_header *hdr, int label, cose_header_value value) {
+    assert(hdr != NULL);    
+    // Dynamic array: if capacity is not enough, grow array
+    if (hdr->size == hdr->capacity) {
+        hdr->capacity *= 2;
+        hdr->pairs = realloc(hdr->pairs, hdr->capacity * sizeof(cose_header_pair));        
+    }
+    hdr->pairs[hdr->size] = (cose_header_pair){label, value};
+    hdr->size++;
+}
+
+void cose_header_free(cose_header *hdr) {
+    assert(hdr != NULL);
+    free(hdr->pairs);
+}
+
+cose_header_value *cose_header_get(cose_header *hdr, int label) {
+    assert(hdr != NULL);
+    for (int i = 0; i < hdr->size; i++) {
+        if (hdr->pairs[i].label == label) {
+            return &hdr->pairs[i].val;
+        }
+    }
+    return NULL;
+}
+
 /**
  * Encodes COSE MAC_structure in CBOR.
  * See:
@@ -68,9 +101,9 @@ cose_result cose_encode_sig_structure(const char *context,
     }
 
     // Encode external aad
-    if (external_aad != NULL) {        
+    if (external_aad != NULL) {
         cbor_encode_byte_string(&ary, external_aad->buf, external_aad->len);
-    } else {        
+    } else {
         cbor_encode_byte_string(&ary, NULL, 0);
     }
 
@@ -85,11 +118,6 @@ cose_result cose_encode_sig_structure(const char *context,
     return cose_ok;
 }
 
-void cose_init_header(cose_header *out) {
-    out->alg = 0;
-    out->content_type = 0;
-}
-
 /**
  * Encodes a protected header to a CBOR 'bstr' from a struct
  */
@@ -101,32 +129,34 @@ void cose_encode_header_bytes(
     *out_len = cbor_encoder_get_buffer_size(&enc, out);
 }
 
-/**
- * Encodes a protected header from a struct
- */
 void cose_encode_header(CborEncoder *enc, cose_header *hdr) {
-    CborEncoder map;    
-    if (hdr == NULL || hdr->alg ==0) {
+    CborEncoder map;
+    if (hdr == NULL) {
         cbor_encoder_create_map(enc, &map, 0);
-        cbor_encoder_close_container(enc, &map);    
+        cbor_encoder_close_container(enc, &map);
         return;
-
-    }    
-    cbor_encoder_create_map(enc, &map, 1); // length not yet determined    
-    if (hdr != NULL) {
-           
-            cbor_encode_int(&map, 1);
-            cbor_encode_int(&map, hdr->alg);
-     
     }
-    cbor_encoder_close_container(enc, &map);    
+    cbor_encoder_create_map(enc, &map, hdr->size);
+    for (int i = 0; i < hdr->size; i++) {
+        if (hdr->pairs[i].label == cose_label_alg) {
+            cbor_encode_int(&map, cose_label_alg);
+            cbor_encode_int(&map, hdr->pairs[i].val.as_int);
+        } else if (hdr->pairs[i].label == cose_label_KID) {
+            bytes str = hdr->pairs[i].val.as_bstr;
+            cbor_encode_int(&map, cose_label_KID);
+            cbor_encode_byte_string(&map, str.buf, str.len);            
+        } else {
+            cbor_encode_int(&map, hdr->pairs[i].label);
+            cbor_encode_undefined(&map);
+        }
+    }
+    cbor_encoder_close_container(enc, &map);
 }
 
 /**
  * Decodes COSE protected header (CBOR 'bstr' type) to a struct
  */
 cose_result cose_decode_protected_header(bytes *protected, cose_header *out) {
-    cose_init_header(out);
     CborParser parser;
     CborValue cborValue;
     cbor_parser_init(protected->buf, protected->len, 0, &parser, &cborValue);
@@ -137,6 +167,7 @@ cose_result cose_decode_protected_header(bytes *protected, cose_header *out) {
  * Decodes a COSE header (CBOR map) into a struct.
  * (Both protected and unprotected maps use the same set of label/value pairs. )
  */
+
 cose_result cose_decode_header(CborValue *cborValue, cose_header *out) {
     if (!cbor_value_is_map(cborValue)) {
         return cose_err_unexpected;
@@ -144,6 +175,7 @@ cose_result cose_decode_header(CborValue *cborValue, cose_header *out) {
     CborValue map;
     cbor_value_enter_container(cborValue, &map);
     int key;
+    cose_header_value val;
     while (!cbor_value_at_end(&map)) {
         // We expect integer keys in the protected header
         if (!cbor_value_is_integer(&map)) {
@@ -153,11 +185,16 @@ cose_result cose_decode_header(CborValue *cborValue, cose_header *out) {
         cbor_value_get_int_checked(&map, &key);
         cbor_value_advance_fixed(&map);
         if (key == cose_label_alg) { // alg
-            cbor_value_get_int_checked(&map, &out->alg);
+            cbor_value_get_int_checked(&map, &val.as_int);
             cbor_value_advance_fixed(&map);
-        } else if (key == cose_label_content_type) { // content type
-            cbor_value_get_uint64(&map, &out->content_type);
+            cose_header_push(out, key, val);
+        } else if (key == cose_label_content_type) {
+            cbor_value_get_uint64(&map, &val.as_int64);
             cbor_value_advance_fixed(&map);
+            cose_header_push(out, key, val);
+        } else if (key == cose_label_content_type) {            
+            cbor_value_dup_byte_string(&map, &val.as_bstr.buf, &val.as_bstr.len, &map);            
+            cose_header_push(out, key, val);
         } else {
             cbor_value_advance(&map);
         }
@@ -194,8 +231,8 @@ int verify_hmac(bytes *to_verify, bytes *signature, bytes *secret) {
 /**
  * Decode sign1/mac0 tagged message and calculate bytes to be verified
  *
- * Type type is derived from the optional tag in the message. If the message is
- * untagged, type provided in the out structure is being used.
+ * Type type is derived from the optional tag in the message. If the message
+ * is untagged, type provided in the out structure is being used.
  */
 cose_result cose_decode_sign1_mac0(bytes *sign1, bytes *external_aad,
     uint8_t *calculated_sig_buf, size_t calculated_sig_size,
@@ -226,7 +263,7 @@ cose_result cose_decode_sign1_mac0(bytes *sign1, bytes *external_aad,
 
     // Get unprotected header (CBOR 'map' type), if not empty
     cose_header unprotected;
-    cose_init_header(&unprotected);
+    cose_header_init(&unprotected);
     if (cbor_value_is_map(&e)) {
         cose_decode_header(&e, &unprotected);
     } else {
@@ -327,7 +364,7 @@ cose_result cose_encode_sign1(cose_sign1_mac_msg *msg, bytes *external_aad,
     cose_encode_sig_structure("Signature1",
         &msg->protected_header,
         external_aad,
-        &msg->payload,        
+        &msg->payload,
         to_sign_buf,
         sizeof(to_sign_buf),
         &to_sign_len);
