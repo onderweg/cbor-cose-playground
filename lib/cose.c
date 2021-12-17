@@ -14,17 +14,18 @@
 
 void cose_header_init(cose_header *hdr) {
     assert(hdr != NULL);
-    hdr->pairs = malloc(sizeof(cose_header_pair) * 5);    
+    hdr->pairs = malloc(sizeof(cose_header_pair) * 5);
     hdr->size = 0;
     hdr->capacity = 5; // initial capacity
 }
 
 void cose_header_push(cose_header *hdr, int label, cose_header_value value) {
-    assert(hdr != NULL);    
+    assert(hdr != NULL);
     // Dynamic array: if capacity is not enough, grow array
     if (hdr->size == hdr->capacity) {
         hdr->capacity *= 2;
-        hdr->pairs = realloc(hdr->pairs, hdr->capacity * sizeof(cose_header_pair));        
+        hdr->pairs =
+            realloc(hdr->pairs, hdr->capacity * sizeof(cose_header_pair));
     }
     hdr->pairs[hdr->size] = (cose_header_pair){label, value};
     hdr->size++;
@@ -144,7 +145,7 @@ void cose_encode_header(CborEncoder *enc, cose_header *hdr) {
         } else if (hdr->pairs[i].label == cose_label_KID) {
             bytes str = hdr->pairs[i].val.as_bstr;
             cbor_encode_int(&map, cose_label_KID);
-            cbor_encode_byte_string(&map, str.buf, str.len);            
+            cbor_encode_byte_string(&map, str.buf, str.len);
         } else {
             cbor_encode_int(&map, hdr->pairs[i].label);
             cbor_encode_undefined(&map);
@@ -190,13 +191,14 @@ cose_result cose_decode_header(CborValue *cborValue, cose_header *out) {
                 cbor_value_get_int64(&map, &val.as_int64);
             }
             cbor_value_advance_fixed(&map);
-            cose_header_push(out, key, val);     
+            cose_header_push(out, key, val);
         } else if (cbor_value_is_unsigned_integer(&map)) { // uint value
             cbor_value_get_uint64(&map, &val.as_uint64);
             cbor_value_advance_fixed(&map);
-            cose_header_push(out, key, val);                    
+            cose_header_push(out, key, val);
         } else if (cbor_value_is_byte_string(&map)) { // bstr value
-            cbor_value_dup_byte_string(&map, &val.as_bstr.buf, &val.as_bstr.len, &map);            
+            cbor_value_dup_byte_string(
+                &map, &val.as_bstr.buf, &val.as_bstr.len, &map);
             cose_header_push(out, key, val);
         } else {
             cbor_value_advance(&map);
@@ -374,11 +376,17 @@ cose_result cose_encode_sign1(cose_sign1_mac_msg *msg, bytes *external_aad,
 
     // Import key
     ecc_key key;
+    wc_ecc_init(&key);
     wc_ecc_import_raw_ex(&key,
         private_key->x,
         private_key->y,
         private_key->d,
-        (ecc_curve_id)private_key->curve_id);                
+        (ecc_curve_id)private_key->curve_id);
+
+    // Check key
+    if (wc_ecc_check_key(&key) != MP_OKAY) {
+        return cose_err_invalid_key;
+    }
 
     // Calculate signature
     mp_int r; // destination for r component of signature.
@@ -386,7 +394,7 @@ cose_result cose_encode_sign1(cose_sign1_mac_msg *msg, bytes *external_aad,
     bytes to_sign = {to_sign_buf, to_sign_len};
     sign_es256(&to_sign, &key, &r, &s);
 
-    // Convert signature R, S components to binary string
+    // Convert signature R, S components to binary strings
     int key_size = wc_ecc_size(&key);
     unsigned char buf_r[key_size];
     unsigned char buf_s[key_size];

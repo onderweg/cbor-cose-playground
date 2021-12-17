@@ -14,6 +14,7 @@ typedef enum cose_result_t {
     cose_err_unsupported = 2,   // unsupported operation
     cose_err_unexpected = 3,    // unexpected value in cose structure
     cose_err_out_of_memory = 4, // cbor out of memory
+    cose_err_invalid_key = 5    // invalid signing key
 } cose_result_t;
 
 typedef struct bytes {
