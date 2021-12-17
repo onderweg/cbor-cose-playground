@@ -167,7 +167,6 @@ cose_result cose_decode_protected_header(bytes *protected, cose_header *out) {
  * Decodes a COSE header (CBOR map) into a struct.
  * (Both protected and unprotected maps use the same set of label/value pairs. )
  */
-
 cose_result cose_decode_header(CborValue *cborValue, cose_header *out) {
     if (!cbor_value_is_map(cborValue)) {
         return cose_err_unexpected;
@@ -176,6 +175,7 @@ cose_result cose_decode_header(CborValue *cborValue, cose_header *out) {
     cbor_value_enter_container(cborValue, &map);
     int key;
     cose_header_value val;
+    CborError err;
     while (!cbor_value_at_end(&map)) {
         // We expect integer keys in the protected header
         if (!cbor_value_is_integer(&map)) {
@@ -184,15 +184,18 @@ cose_result cose_decode_header(CborValue *cborValue, cose_header *out) {
         // Get key
         cbor_value_get_int_checked(&map, &key);
         cbor_value_advance_fixed(&map);
-        if (key == cose_label_alg) { // alg
-            cbor_value_get_int_checked(&map, &val.as_int);
+        if (cbor_value_is_integer(&map)) { // int value
+            err = cbor_value_get_int_checked(&map, &val.as_int);
+            if (err == CborErrorDataTooLarge) {
+                cbor_value_get_int64(&map, &val.as_int64);
+            }
             cbor_value_advance_fixed(&map);
-            cose_header_push(out, key, val);
-        } else if (key == cose_label_content_type) {
-            cbor_value_get_uint64(&map, &val.as_int64);
+            cose_header_push(out, key, val);     
+        } else if (cbor_value_is_unsigned_integer(&map)) { // uint value
+            cbor_value_get_uint64(&map, &val.as_uint64);
             cbor_value_advance_fixed(&map);
-            cose_header_push(out, key, val);
-        } else if (key == cose_label_content_type) {            
+            cose_header_push(out, key, val);                    
+        } else if (cbor_value_is_byte_string(&map)) { // bstr value
             cbor_value_dup_byte_string(&map, &val.as_bstr.buf, &val.as_bstr.len, &map);            
             cose_header_push(out, key, val);
         } else {
@@ -356,7 +359,7 @@ cose_result cose_encode_mac0(cose_sign1_mac_msg *msg, bytes *external_aad,
 }
 
 cose_result cose_encode_sign1(cose_sign1_mac_msg *msg, bytes *external_aad,
-    ecc_key *private_key, uint8_t *out, size_t out_size, size_t *out_len) {
+    cose_ecc_key *private_key, uint8_t *out, size_t out_size, size_t *out_len) {
     uint8_t to_sign_buf[512];
     size_t to_sign_len = sizeof(to_sign_buf);
 
@@ -369,14 +372,22 @@ cose_result cose_encode_sign1(cose_sign1_mac_msg *msg, bytes *external_aad,
         sizeof(to_sign_buf),
         &to_sign_len);
 
+    // Import key
+    ecc_key key;
+    wc_ecc_import_raw_ex(&key,
+        private_key->x,
+        private_key->y,
+        private_key->d,
+        (ecc_curve_id)private_key->curve_id);                
+
     // Calculate signature
     mp_int r; // destination for r component of signature.
     mp_int s; // destination for s component of signature.
     bytes to_sign = {to_sign_buf, to_sign_len};
-    sign_es256(&to_sign, private_key, &r, &s);
+    sign_es256(&to_sign, &key, &r, &s);
 
     // Convert signature R, S components to binary string
-    int key_size = wc_ecc_size(private_key);
+    int key_size = wc_ecc_size(&key);
     unsigned char buf_r[key_size];
     unsigned char buf_s[key_size];
     mp_to_unsigned_bin(&r, buf_r);

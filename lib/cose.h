@@ -1,9 +1,6 @@
 #ifndef ONDERWEG_COSE_H
 #define ONDERWEG_COSE_H
 
-#include <wolfssl/options.h>
-#include <wolfssl/wolfcrypt/ecc.h>
-
 #include <cbor.h>
 
 #define COSE_ALG_ES256 -7   // ECDSA w/ SHA-256
@@ -39,7 +36,8 @@ typedef enum cose_header_label {
  */
 typedef union cose_header_value {
    int as_int;
-   uint64_t as_int64;
+   int64_t as_int64;
+   uint64_t as_uint64;   
    bytes as_bstr;
 } cose_header_value;
 
@@ -85,7 +83,7 @@ typedef struct cose_ecc_key {
     char *x;
     char *y;
     char *d;
-    ecc_curve_id curve_id;
+    int curve_id; // ecc_curve_id
 } cose_ecc_key;
 
 void cose_header_init(cose_header* hdr);
@@ -106,8 +104,8 @@ cose_result cose_decode_sign1_mac0(bytes *sign1, bytes *external_aad,
 
 cose_result cose_encode_mac0(cose_sign1_mac_msg *msg, bytes *external_aad,
     bytes *secret, uint8_t *out, size_t out_size, size_t *out_len);
-cose_result cose_encode_sign1(cose_sign1_mac_msg *msg,bytes *external_aad,
-    ecc_key *private_key, uint8_t *out, size_t out_size, size_t *out_len);
+cose_result cose_encode_sign1(cose_sign1_mac_msg *msg, bytes *external_aad,
+    cose_ecc_key *private_key, uint8_t *out, size_t out_size, size_t *out_len);
 
 int verify_hmac(bytes *to_verify, bytes *signature, bytes *secret);
 

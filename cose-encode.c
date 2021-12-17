@@ -15,7 +15,6 @@
 
 void encode_sign1() {
     // Import key
-    ecc_key key;
     cose_ecc_key private_key = {
         .x = "bac5b11cad8f99f9c72b05cf4b9e26d244dc189f745228255a219a86d6a09ef"
              "f",
@@ -24,11 +23,6 @@ void encode_sign1() {
         .d = "57c92077664146e876760c9520d054aa93c3afb04e306705db6090308507b"
              "4d3", // private key
         .curve_id = ECC_SECP256R1};
-    wc_ecc_import_raw_ex(&key,
-        private_key.x,
-        private_key.y,
-        private_key.d,
-        private_key.curve_id);
 
     char *payload_str = "Hi there";
     bytes payload = {(uint8_t *)payload_str, strlen(payload_str)};
@@ -63,7 +57,7 @@ void encode_sign1() {
     size_t out_size = sizeof(out_buf);
     size_t out_len;
 
-    cose_encode_sign1(&msg, &external_aad, &key, out_buf, out_size, &out_len);
+    cose_encode_sign1(&msg, &external_aad, &private_key, out_buf, out_size, &out_len);
 
     // Print result
     printf("Sign message:\n");
