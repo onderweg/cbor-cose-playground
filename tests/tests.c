@@ -68,11 +68,6 @@ int main(int argc, char **argv) {
     test_encodes_header();
     test_decodes_header();
 
-	// Leak
-   char * buffer = malloc(1024);
-   sprintf(buffer, "%d", argc);
-   printf("%s",buffer);
-
     if (fails) {
         printf("\n*** %d TESTS %sFAILED%s ***\n",
             fails,
