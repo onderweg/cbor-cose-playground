@@ -1,6 +1,7 @@
 # Build artefacts
 cose-verify
 cose-encode
+test
 
 # Object files
 *.o
