@@ -96,10 +96,10 @@ void cose_encode_header_bytes(
     cose_header *hdr, uint8_t *out, size_t out_size, size_t *out_len);
 void cose_encode_header(CborEncoder *enc, cose_header *hdr);
 
-cose_result cose_decode_protected_header(bytes *protected, cose_header *out);
+cose_result cose_decode_header_bytes(bytes *protected, cose_header *out);
 cose_result cose_decode_header(CborValue *cborValue, cose_header *out);
 
-cose_result cose_decode_sign1_mac0(bytes *sign1, bytes *external_aad,
+cose_result cose_decode_sign1_mac0(bytes *msg, bytes *external_aad,
     uint8_t *calculated_sig_buf, size_t calculated_sig_size,
     cose_sign1_mac_msg *out);
 

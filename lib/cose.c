@@ -140,7 +140,7 @@ void cose_encode_header(CborEncoder *enc, cose_header *hdr) {
         return;
     }
     cbor_encoder_create_map(enc, &map, hdr->size);
-    for (int i = 0; i < hdr->size; i++) { // @todo make general
+    for (int i = 0; i < hdr->size; i++) { // @todo make generic
         if (hdr->pairs[i].label == cose_label_alg) {
             cbor_encode_int(&map, cose_label_alg);
             cbor_encode_int(&map, hdr->pairs[i].val.as_int);
@@ -157,9 +157,9 @@ void cose_encode_header(CborEncoder *enc, cose_header *hdr) {
 }
 
 /**
- * Decodes COSE protected header (CBOR 'bstr' type) to a struct
+ * Decodes COSE header that is a binary string (CBOR 'bstr' type).
  */
-cose_result cose_decode_protected_header(bytes *protected, cose_header *out) {
+cose_result cose_decode_header_bytes(bytes *protected, cose_header *out) {
     CborParser parser;
     CborValue cborValue;
     cbor_parser_init(protected->buf, protected->len, 0, &parser, &cborValue);
@@ -167,7 +167,7 @@ cose_result cose_decode_protected_header(bytes *protected, cose_header *out) {
 }
 
 /**
- * Decodes a COSE header (CBOR map) into a struct.
+ * Decodes a COSE header that is a `CborValue`.
  * (Both protected and unprotected maps use the same set of label/value pairs. )
  */
 cose_result cose_decode_header(CborValue *cborValue, cose_header *out) {
@@ -241,13 +241,13 @@ int verify_hmac(bytes *to_verify, bytes *signature, bytes *secret) {
  * Type type is derived from the optional tag in the message. If the message
  * is untagged, type provided in the out structure is being used.
  */
-cose_result cose_decode_sign1_mac0(bytes *sign1, bytes *external_aad,
+cose_result cose_decode_not_encrypted(bytes *msg, bytes *external_aad,
     uint8_t *calculated_sig_buf, size_t calculated_sig_size,
     cose_sign1_mac_msg *out) {
 
     CborParser parser;
     CborValue val;
-    cbor_parser_init(sign1->buf, sign1->len, 0, &parser, &val);
+    cbor_parser_init(msg->buf, msg->len, 0, &parser, &val);
 
     // Validate
     CborError err = cbor_value_validate(&val, 0);

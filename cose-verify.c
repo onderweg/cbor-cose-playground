@@ -33,14 +33,13 @@ void verify_mac0() {
     // Decode CBOR message
     bytes msg_bytes = {msg_buf, msg_len};
     uint8_t to_verify_buf[1024];
-    cose_decode_sign1_mac0(
+    cose_decode_not_encrypted(
         &msg_bytes, NULL, to_verify_buf, sizeof(to_verify_buf), &signed_msg);
 
     // Parse protected header
     cose_header protected_header;
     cose_header_init(&protected_header);
-    cose_decode_protected_header(
-        &signed_msg.protected_header, &protected_header);
+    cose_decode_header_bytes(&signed_msg.protected_header, &protected_header);
 
     cose_header_value *alg = cose_header_get(&protected_header, cose_label_alg);
 
@@ -89,13 +88,13 @@ void verify_sign1() {
     // Decode CBOR message
     bytes msg_bytes = {msg_buf, msg_len};
     uint8_t to_verify_buf[1024];
-    cose_decode_sign1_mac0(
+    cose_decode_not_encrypted(
         &msg_bytes, NULL, to_verify_buf, sizeof(to_verify_buf), &signed_msg);
 
     // Decode protected header
     cose_header decoded_protected_header;
     cose_header_init(&decoded_protected_header);
-    cose_decode_protected_header(
+    cose_decode_header_bytes(
         &signed_msg.protected_header, &decoded_protected_header);
 
     cose_header_value *alg_protected =
@@ -128,7 +127,8 @@ void verify_sign1() {
         &sig_hex, signed_msg.signature.buf, signed_msg.signature.len);
 
     if ((alg_protected != NULL && alg_protected->as_int == COSE_ALG_ES256) ||
-        (alg_unprotected != NULL && alg_unprotected->as_int == COSE_ALG_ES256)) {
+        (alg_unprotected != NULL &&
+            alg_unprotected->as_int == COSE_ALG_ES256)) {
         int verified = verify_rs_es256(&signed_msg.to_verify, sig_hex, &RS_ID);
         printf("Verified: %s (%i)\n", verified == 1 ? "YES" : "NO", verified);
     }

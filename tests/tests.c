@@ -15,16 +15,18 @@
 /* The following lines make up our testing "framework" :) */
 static int fails = 0;
 
+#define msg(_s) (_s == NULL || strlen(_s) == 0) ? "" : ": \"" _s "\""
+
 #define test(_s)                                                               \
     { printf("✪ %s ✪\n", _s); }
 #define assert_true(_c, _n)                                                    \
     if (_c)                                                                    \
         printf("  " TEST_COLOR_SUCCESS "✓ PASSED" TEST_COLOR_RESET "\n");      \
     else {                                                                     \
-        printf("  " TEST_COLOR_FAIL "✕ FAILED on line %i %s" TEST_COLOR_RESET  \
+        printf("  " TEST_COLOR_FAIL "✕ FAILED on line %i%s" TEST_COLOR_RESET  \
                "\n",                                                           \
             __LINE__,                                                          \
-            _n);                                                               \
+            msg(_n));                                                          \
         fails++;                                                               \
     }
 #define assert_eq_buf(_b1, _b2, _len, _s)                                      \
@@ -57,7 +59,7 @@ void test_decodes_header() {
     bytes input = {buf, sizeof(buf)};
     cose_header header;
     cose_header_init(&header);
-    cose_result res = cose_decode_protected_header(&input, &header);
+    cose_result res = cose_decode_header_bytes(&input, &header);
     assert_true(res == cose_ok, "");
 
     cose_header_value *pair1 = cose_header_get(&header, 1);
