@@ -12,11 +12,13 @@
 #include "ecdsa.h"
 #include "utils.h"
 
+static int const initial_header_capacity = 5;
+
 void cose_header_init(cose_header *hdr) {
     assert(hdr != NULL);
-    hdr->pairs = malloc(sizeof(cose_header_pair) * 5);
+    hdr->pairs = malloc(sizeof(cose_header_pair) * initial_header_capacity);
     hdr->size = 0;
-    hdr->capacity = 5; // initial capacity
+    hdr->capacity = initial_header_capacity; // initial capacity
 }
 
 void cose_header_push(cose_header *hdr, int label, cose_header_value value) {
@@ -94,8 +96,8 @@ cose_result cose_encode_sig_structure(const char *context,
     cbor_encode_text_stringz(&ary, context);
     // Encode protected header
     if (body_protected->len > 0 && body_protected->buf[0] == 0xa0) {
-        // Senders SHOULD encode a zero-length map as a zero-
-        // length string rather than as a zero-length map (encoded as h'a0')
+        // "Senders SHOULD encode a zero-length map as a zero-
+        // length string rather than as a zero-length map (encoded as h'a0')""
         cbor_encode_byte_string(&ary, NULL, 0);
     } else {
         cbor_encode_byte_string(&ary, body_protected->buf, body_protected->len);
@@ -138,7 +140,7 @@ void cose_encode_header(CborEncoder *enc, cose_header *hdr) {
         return;
     }
     cbor_encoder_create_map(enc, &map, hdr->size);
-    for (int i = 0; i < hdr->size; i++) {
+    for (int i = 0; i < hdr->size; i++) { // @todo make general
         if (hdr->pairs[i].label == cose_label_alg) {
             cbor_encode_int(&map, cose_label_alg);
             cbor_encode_int(&map, hdr->pairs[i].val.as_int);
