@@ -57,7 +57,7 @@ void encode_sign1() {
     size_t out_size = sizeof(out_buf);
     size_t out_len;
 
-    cose_encode_sign1(&msg, &external_aad, &private_key, out_buf, out_size, &out_len);
+    cose_encode_sign1(&msg, COSE_ALG_ES256, &external_aad, &private_key, out_buf, out_size, &out_len);
 
     // Print result
     printf("Sign message:\n");

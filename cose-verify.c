@@ -8,6 +8,7 @@
 #include <cbor.h>
 
 #include "lib/cose.h"
+#include "lib/hmac.h"
 #include "lib/ecdsa.h"
 #include "lib/utils.h"
 
@@ -43,11 +44,15 @@ void verify_mac0() {
 
     cose_header_value *alg = cose_header_get(&protected_header, cose_label_alg);
 
+    char *y;
+    buffer_to_hexstring(&y, signed_msg.signature.buf, signed_msg.signature.len);
+    printf("Embeded Signature: %s\n", y);
+
     printf("CBOR tag: %llu\n", signed_msg.tag);
     printf("Signature type in protected header: %i\n", alg->as_int);
     if (alg->as_int == COSE_ALG_HMAC_256) {
         int verified =
-            verify_hmac(&signed_msg.to_verify, &signed_msg.signature, &key);
+            hmac_verify(&signed_msg.to_verify, &signed_msg.signature, &key);
         printf("Verified: %s\n", verified == 1 ? "YES" : "NO");
     }
 }

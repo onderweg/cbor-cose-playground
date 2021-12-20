@@ -5,11 +5,11 @@
 
 #include <wolfssl/options.h>
 #include <wolfssl/wolfcrypt/ecc.h>
-#include <wolfssl/wolfcrypt/hmac.h>
 #include <wolfssl/wolfcrypt/integer.h> // mp_toraw
 
 #include "cose.h"
 #include "ecdsa.h"
+#include "hmac.h"
 #include "utils.h"
 
 static int const initial_header_capacity = 5;
@@ -211,31 +211,6 @@ cose_result cose_decode_header(CborValue *cborValue, cose_header *out) {
 }
 
 /**
- * Compare calculated HMAC 256 signature to provided signature.
- *
- * Returns 1 when signature is valid, 0 if invalid
- */
-int verify_hmac(bytes *to_verify, bytes *signature, bytes *secret) {
-    Hmac hmac;
-    byte hmacDigest[SHA256_DIGEST_SIZE];
-
-    wc_HmacSetKey(&hmac, WC_SHA256, secret->buf, secret->len);
-    wc_HmacUpdate(&hmac, to_verify->buf, to_verify->len);
-    wc_HmacFinal(&hmac, hmacDigest);
-
-    char *x;
-    buffer_to_hexstring(&x, hmacDigest, SHA256_DIGEST_SIZE);
-    printf("Calculated Signature: %s\n", x);
-
-    char *y;
-    buffer_to_hexstring(&y, signature->buf, signature->len);
-    printf("Embeded Signature: %s\n", y);
-
-    int ret = memcmp(hmacDigest, signature->buf, SHA256_DIGEST_SIZE);
-    return (ret == 0);
-}
-
-/**
  * Decode sign1/mac0 tagged message and calculate bytes to be verified
  *
  * Type type is derived from the optional tag in the message. If the message
@@ -325,7 +300,7 @@ cose_result cose_decode_not_encrypted(bytes *msg, bytes *external_aad,
 cose_result cose_encode_mac0(cose_sign1_mac_msg *msg, bytes *external_aad,
     bytes *secret, uint8_t *out, size_t out_size, size_t *out_len) {
     uint8_t sign_buf[512];
-    size_t sign_len = sizeof(sign_buf);
+    size_t sign_len;    
 
     // Create MAC structure and encode it
     cose_encode_mac_structure("MAC0",
@@ -336,12 +311,10 @@ cose_result cose_encode_mac0(cose_sign1_mac_msg *msg, bytes *external_aad,
         sizeof(sign_buf),
         &sign_len);
 
-    // Apply MAC
-    Hmac hmac;
-    byte hmacDigest[SHA256_DIGEST_SIZE];
-    wc_HmacSetKey(&hmac, WC_SHA256, secret->buf, secret->len);
-    wc_HmacUpdate(&hmac, sign_buf, sign_len);
-    wc_HmacFinal(&hmac, hmacDigest);
+    // Apply MAC    
+    bytes sign = {sign_buf, sign_len};    
+    byte hmac_digest[HMAC_SHA256_DIGEST_SIZE];
+    hmac_sign(secret, &sign, hmac_digest);
 
     CborEncoder enc;
     cbor_encoder_init(&enc, out, out_size, 0);
@@ -355,14 +328,14 @@ cose_result cose_encode_mac0(cose_sign1_mac_msg *msg, bytes *external_aad,
     cose_encode_header(&ary, &msg->unprotected_header);
 
     cbor_encode_byte_string(&ary, msg->payload.buf, msg->payload.len);
-    cbor_encode_byte_string(&ary, hmacDigest, SHA256_DIGEST_SIZE);
+    cbor_encode_byte_string(&ary, hmac_digest, SHA256_DIGEST_SIZE);
 
     cbor_encoder_close_container(&enc, &ary);
     *out_len = cbor_encoder_get_buffer_size(&enc, out);
     return cose_ok;
 }
 
-cose_result cose_encode_sign1(cose_sign1_mac_msg *msg, bytes *external_aad,
+cose_result cose_encode_sign1(cose_sign1_mac_msg *msg, cose_alg_t alg, bytes *external_aad,
     cose_ecc_key *private_key, uint8_t *out, size_t out_size, size_t *out_len) {
     uint8_t to_sign_buf[512];
     size_t to_sign_len = sizeof(to_sign_buf);
@@ -394,7 +367,13 @@ cose_result cose_encode_sign1(cose_sign1_mac_msg *msg, bytes *external_aad,
     mp_int r; // destination for r component of signature.
     mp_int s; // destination for s component of signature.
     bytes to_sign = {to_sign_buf, to_sign_len};
-    sign_es256(&to_sign, &key, &r, &s);
+
+    // Sign message
+    if (alg == COSE_ALG_ES256) {
+        sign_es256(&to_sign, &key, &r, &s);
+    } else {
+        return cose_err_unsupported;
+    }
 
     // Convert signature R, S components to binary strings
     int key_size = wc_ecc_size(&key);
