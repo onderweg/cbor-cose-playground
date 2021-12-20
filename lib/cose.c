@@ -5,20 +5,20 @@
 
 #include <wolfssl/options.h>
 #include <wolfssl/wolfcrypt/ecc.h>
-#include <wolfssl/wolfcrypt/integer.h> // mp_toraw
 
 #include "cose.h"
 #include "ecdsa.h"
 #include "hmac.h"
 #include "utils.h"
 
+/** Initial capacity for header array */
 static int const initial_header_capacity = 5;
 
 void cose_header_init(cose_header *hdr) {
     assert(hdr != NULL);
     hdr->pairs = malloc(sizeof(cose_header_pair) * initial_header_capacity);
     hdr->size = 0;
-    hdr->capacity = initial_header_capacity; // initial capacity
+    hdr->capacity = initial_header_capacity; 
 }
 
 void cose_header_push(cose_header *hdr, int label, cose_header_value value) {
@@ -61,9 +61,7 @@ cose_result cose_encode_mac_structure(const char *context,
 
     CborEncoder ary;
     cbor_encoder_create_array(&enc, &ary, 4);
-
     cbor_encode_text_stringz(&ary, context);
-
     cbor_encode_byte_string(&ary, body_protected->buf, body_protected->len);
     if (external_aad != NULL) {
         cbor_encode_byte_string(&ary, external_aad->buf, external_aad->len);
@@ -284,7 +282,7 @@ cose_result cose_decode_not_encrypted(bytes *msg, bytes *external_aad,
     if (err != cose_ok)
         return err;
     bytes to_verify = (bytes){calculated_sig_buf, to_verify_len};
-
+    // Assign values to output structrure
     out->tag = tag;
     out->payload = payload;
     out->protected_header = protected;
@@ -316,25 +314,27 @@ cose_result cose_encode_mac0(cose_sign1_mac_msg *msg, bytes *external_aad,
     byte hmac_digest[HMAC_SHA256_DIGEST_SIZE];
     hmac_sign(secret, &sign, hmac_digest);
 
+    // Prepare encoder and write Cbor tag
     CborEncoder enc;
     cbor_encoder_init(&enc, out, out_size, 0);
     cbor_encode_tag(&enc, CborCOSE_Mac0Tag);
 
+    // Encode COSE_Sign1 structure
     CborEncoder ary;
     cbor_encoder_create_array(&enc, &ary, 4);
-
     cbor_encode_byte_string(
         &ary, msg->protected_header.buf, msg->protected_header.len);
     cose_encode_header(&ary, &msg->unprotected_header);
-
     cbor_encode_byte_string(&ary, msg->payload.buf, msg->payload.len);
     cbor_encode_byte_string(&ary, hmac_digest, SHA256_DIGEST_SIZE);
-
     cbor_encoder_close_container(&enc, &ary);
     *out_len = cbor_encoder_get_buffer_size(&enc, out);
     return cose_ok;
 }
 
+/**
+ * Encode a COSE_Mac0 message
+ */
 cose_result cose_encode_sign1(cose_sign1_mac_msg *msg, cose_alg_t alg, bytes *external_aad,
     cose_ecc_key *private_key, uint8_t *out, size_t out_size, size_t *out_len) {
     uint8_t to_sign_buf[512];
@@ -391,21 +391,19 @@ cose_result cose_encode_sign1(cose_sign1_mac_msg *msg, cose_alg_t alg, bytes *ex
     mp_clear(&r);
     mp_clear(&s);
 
+    // Prepare encoder and write CBOR tag
     CborEncoder enc;
     cbor_encoder_init(&enc, out, out_size, 0);
     cbor_encode_tag(&enc, CborCOSE_Sign1Tag);
 
+    // Encode COSE_Mac0 structure
     CborEncoder ary;
     cbor_encoder_create_array(&enc, &ary, 4);
-
     cbor_encode_byte_string(
         &ary, msg->protected_header.buf, msg->protected_header.len);
     cose_encode_header(&ary, &msg->unprotected_header);
-
     cbor_encode_byte_string(&ary, msg->payload.buf, msg->payload.len);
-
     cbor_encode_byte_string(&ary, signature, key_size * 2);
-
     cbor_encoder_close_container(&enc, &ary);
     *out_len = cbor_encoder_get_buffer_size(&enc, out);
     return cose_ok;

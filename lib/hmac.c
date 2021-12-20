@@ -4,7 +4,6 @@
 #include <wolfssl/wolfcrypt/hmac.h>
 
 #include "hmac.h"
-#include "utils.h"
 
 /**
  * Sign byte buffer with HMAC 256

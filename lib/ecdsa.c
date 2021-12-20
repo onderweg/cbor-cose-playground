@@ -43,8 +43,8 @@ int verify_rs_es256(bytes *to_verify, char *sig_hex, ecc_key *public_key) {
     assert(sig_hex != NULL);
     int key_size = wc_ecc_size(public_key);
     // Check signature length
-    // Signature is R and L concatenated, so length sould be 2 * key size.
-    // imes 2 (because hex encoded: 2 chars per byte)
+    // Signature is R and L concatenated, so length sould be 2 * key size,
+    // times 2 (because hex encoded: 2 chars per byte)
     assert(strlen(sig_hex) == 2 * 2 * key_size);
 
     int sig_len = strlen(sig_hex);
@@ -68,7 +68,7 @@ int verify_rs_es256(bytes *to_verify, char *sig_hex, ecc_key *public_key) {
  */
 void sign_es256(bytes *to_sign, ecc_key *private_key, mp_int *r, mp_int *s) {    
     WC_RNG rng;
-    wc_InitRng(&rng); // initialize rng
+    wc_InitRng(&rng);
     // Compute digest
     Sha256 sha;
     byte digest[SHA256_DIGEST_SIZE];
