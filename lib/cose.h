@@ -45,7 +45,7 @@ typedef union cose_header_value {
 } cose_header_value;
 
 /**
- * Represents a single item (label/value pair) in a COSE header map
+ * Represents a single item (label/value pair) in a COSE header set
  */
 typedef struct cose_header_pair {
     int label;
@@ -53,8 +53,10 @@ typedef struct cose_header_pair {
 } cose_header_pair;
 
 /**
- * Represents a COSE header map, with pairs stored in a dynamic (auto resized)
- * array
+ * Represents a set of COSE header parameters.
+ * 
+ * The label/value pairs of the header parameters are stored in a 
+ * dynamic (auto resized) array.
  */
 typedef struct cose_header {
     cose_header_pair *pairs;

@@ -11,9 +11,12 @@
 #include "hmac.h"
 #include "utils.h"
 
-/** Initial capacity for header array */
+/** Initial capacity for COSE header array */
 static int const initial_header_capacity = 5;
 
+/**
+ * Allocates memory for the inital capacity of the header parameter array
+ */ 
 void cose_header_init(cose_header *hdr) {
     assert(hdr != NULL);
     hdr->pairs = malloc(sizeof(cose_header_pair) * initial_header_capacity);
@@ -21,6 +24,10 @@ void cose_header_init(cose_header *hdr) {
     hdr->capacity = initial_header_capacity; 
 }
 
+/**
+ * Adds a COSE header paramater (label/value pair) to an 
+ * existing COSE header sttructure.
+ */
 void cose_header_push(cose_header *hdr, int label, cose_header_value value) {
     assert(hdr != NULL);
     // Dynamic array: if capacity is not enough, grow array
@@ -33,11 +40,18 @@ void cose_header_push(cose_header *hdr, int label, cose_header_value value) {
     hdr->size++;
 }
 
+/**
+ * Frees the array of header pairs
+ */
 void cose_header_free(cose_header *hdr) {
     assert(hdr != NULL);
     free(hdr->pairs);
+    hdr->size = 0;
 }
 
+/**
+ * Retrieves header parameter with provided label from set of header parameters
+ */
 cose_header_value *cose_header_get(cose_header *hdr, int label) {
     assert(hdr != NULL);
     for (int i = 0; i < hdr->size; i++) {
