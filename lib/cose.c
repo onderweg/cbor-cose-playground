@@ -16,17 +16,20 @@ static int const initial_header_capacity = 5;
 
 /**
  * Allocates memory for the inital capacity of the header parameter array
- */ 
+ */
 void cose_header_init(cose_header *hdr) {
     assert(hdr != NULL);
     hdr->pairs = malloc(sizeof(cose_header_pair) * initial_header_capacity);
     hdr->size = 0;
-    hdr->capacity = initial_header_capacity; 
+    hdr->capacity = initial_header_capacity;
 }
 
 /**
- * Adds a COSE header paramater (label/value pair) to an 
+ * Adds a COSE header paramater (label/value pair) to an
  * existing COSE header sttructure.
+ *
+ * @note Before this function can be used, the header structure has to be
+ * initialised with `cose_header_init`.
  */
 void cose_header_push(cose_header *hdr, int label, cose_header_value value) {
     assert(hdr != NULL);
@@ -50,7 +53,13 @@ void cose_header_free(cose_header *hdr) {
 }
 
 /**
- * Retrieves header parameter with provided label from set of header parameters
+ * Retrieves first header parameter with provided label from set of header
+ * parameters.
+ *
+ * @note Before this function can be used, the header structure has to be
+ * initialised with `cose_header_init`.
+ *
+ * @returns Header value for label, or NULL if not found.
  */
 cose_header_value *cose_header_get(cose_header *hdr, int label) {
     assert(hdr != NULL);
@@ -64,8 +73,11 @@ cose_header_value *cose_header_get(cose_header *hdr, int label) {
 
 /**
  * Encodes COSE MAC_structure in CBOR.
+ *
  * See:
  * https://www.ietf.org/id/draft-ietf-cose-rfc8152bis-struct-15.html#name-how-to-compute-and-verify-a
+ *
+ * @returns Result of operation
  */
 cose_result cose_encode_mac_structure(const char *context,
     bytes *body_protected, bytes *external_aad, bytes *payload, uint8_t *out,
@@ -94,8 +106,11 @@ cose_result cose_encode_mac_structure(const char *context,
 
 /**
  * Encodes COSE Sig_structure structure in CBOR.
+ *
  * See:
  * https://www.ietf.org/id/draft-ietf-cose-rfc8152bis-struct-15.html#name-signing-and-verification-pr
+ *
+ * @returns Result of operation
  */
 cose_result cose_encode_sig_structure(const char *context,
     bytes *body_protected, bytes *external_aad, bytes *payload, uint8_t *out,
@@ -134,7 +149,7 @@ cose_result cose_encode_sig_structure(const char *context,
 }
 
 /**
- * Encodes a protected header to a CBOR 'bstr' from a struct
+ * Encodes a (protected) header to a CBOR `bstr` from a header struct
  */
 void cose_encode_header_bytes(
     cose_header *hdr, uint8_t *out, size_t out_size, size_t *out_len) {
@@ -144,6 +159,9 @@ void cose_encode_header_bytes(
     *out_len = cbor_encoder_get_buffer_size(&enc, out);
 }
 
+/**
+ * Encodes a (protected) header to a CBOR `bstr` with a `CborEncoder`.
+ */
 void cose_encode_header(CborEncoder *enc, cose_header *hdr) {
     CborEncoder map;
     if (hdr == NULL) {
@@ -170,6 +188,7 @@ void cose_encode_header(CborEncoder *enc, cose_header *hdr) {
 
 /**
  * Decodes COSE header that is a binary string (CBOR 'bstr' type).
+ *
  */
 cose_result cose_decode_header_bytes(bytes *protected, cose_header *out) {
     CborParser parser;
@@ -180,7 +199,7 @@ cose_result cose_decode_header_bytes(bytes *protected, cose_header *out) {
 
 /**
  * Decodes a COSE header that is a `CborValue`.
- * (Both protected and unprotected maps use the same set of label/value pairs. )
+ * (Both protected and unprotected maps use the same set of label/value pairs.)
  */
 cose_result cose_decode_header(CborValue *cborValue, cose_header *out) {
     if (!cbor_value_is_map(cborValue)) {
@@ -225,7 +244,7 @@ cose_result cose_decode_header(CborValue *cborValue, cose_header *out) {
 /**
  * Decode sign1/mac0 tagged message and calculate bytes to be verified
  *
- * Type type is derived from the optional tag in the message. If the message
+ * Type is derived from the optional tag in the message. If the message
  * is untagged, type provided in the out structure is being used.
  */
 cose_result cose_decode_not_encrypted(bytes *msg, bytes *external_aad,
@@ -242,8 +261,9 @@ cose_result cose_decode_not_encrypted(bytes *msg, bytes *external_aad,
         return cose_err_cbor_invalid;
     }
 
-    CborTag tag = out->tag;
-    if (cbor_value_is_tag(&val)) { // tag is optional, if present, get tag
+    CborTag tag =
+        out->tag; // tag is optional, default: set from output structure
+    if (cbor_value_is_tag(&val)) { // if present, get tag for CBOR
         cbor_value_get_tag(&val, &tag);
         cbor_value_advance(&val);
     }
@@ -312,7 +332,7 @@ cose_result cose_decode_not_encrypted(bytes *msg, bytes *external_aad,
 cose_result cose_encode_mac0(cose_sign1_mac_msg *msg, bytes *external_aad,
     bytes *secret, uint8_t *out, size_t out_size, size_t *out_len) {
     uint8_t sign_buf[512];
-    size_t sign_len;    
+    size_t sign_len;
 
     // Create MAC structure and encode it
     cose_encode_mac_structure("MAC0",
@@ -323,8 +343,8 @@ cose_result cose_encode_mac0(cose_sign1_mac_msg *msg, bytes *external_aad,
         sizeof(sign_buf),
         &sign_len);
 
-    // Apply MAC    
-    bytes sign = {sign_buf, sign_len};    
+    // Apply MAC
+    bytes sign = {sign_buf, sign_len};
     byte hmac_digest[HMAC_SHA256_DIGEST_SIZE];
     hmac_sign(secret, &sign, hmac_digest);
 
@@ -349,8 +369,9 @@ cose_result cose_encode_mac0(cose_sign1_mac_msg *msg, bytes *external_aad,
 /**
  * Encode a COSE_Mac0 message
  */
-cose_result cose_encode_sign1(cose_sign1_mac_msg *msg, cose_alg_t alg, bytes *external_aad,
-    cose_ecc_key *private_key, uint8_t *out, size_t out_size, size_t *out_len) {
+cose_result cose_encode_sign1(cose_sign1_mac_msg *msg, cose_alg_t alg,
+    bytes *external_aad, cose_ecc_key *private_key, uint8_t *out,
+    size_t out_size, size_t *out_len) {
     uint8_t to_sign_buf[512];
     size_t to_sign_len = sizeof(to_sign_buf);
 

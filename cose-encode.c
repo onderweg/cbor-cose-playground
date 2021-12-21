@@ -11,6 +11,7 @@
 #include "lib/cose.h"
 #include "lib/utils.h"
 
+#include <wolfssl/options.h>
 #include <wolfssl/wolfcrypt/ecc.h>
 
 void encode_sign1() {

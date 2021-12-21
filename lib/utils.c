@@ -1,19 +1,22 @@
+#include <stdio.h>
+#include <stdlib.h>
+
 #include "utils.h"
 
-size_t hexstring_to_buffer(byte **buffer, char *string, size_t string_len) {
+size_t hexstring_to_buffer(uint8_t **buffer, char *string, size_t string_len) {
     size_t out_length = string_len / 2;
-    byte *block = malloc(out_length);
+    uint8_t *block = malloc(out_length);
 
     for (unsigned int i = 0; i < out_length; i++) {
         char buf[3] = {string[2 * i], string[2 * i + 1], 0};
-        block[i] = (byte)strtol(buf, 0, 16);
+        block[i] = strtol(buf, 0, 16);
     }
 
     *buffer = block;
     return out_length;
 }
 
-size_t buffer_to_hexstring(char **string, byte *buffer, size_t buf_len) {
+size_t buffer_to_hexstring(char **string, uint8_t *buffer, size_t buf_len) {
     size_t out_len = 2 * buf_len + 1;
     char *block = malloc(out_len);
     char *p = block;
@@ -27,7 +30,7 @@ size_t buffer_to_hexstring(char **string, byte *buffer, size_t buf_len) {
     return out_len;
 }
 
-void phex(byte *ary, size_t len) {
+void phex(uint8_t *ary, size_t len) {
     for (unsigned int i = 0; i < len; i++) {
         printf("%02x", ary[i]);
     }
