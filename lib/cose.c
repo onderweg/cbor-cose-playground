@@ -1,3 +1,11 @@
+/* An incomplete Concise Binary Object Representation (CBOR) library.
+ *
+ * Copyright (c) 2021, G. Stevens <dev at onderweg dot eu>
+ * 
+ * USE AT YOUR OWN RISK. I threw this together as a personal learning
+ * experiment.
+ */
+
 #include <stdio.h>
 #include <string.h>
 

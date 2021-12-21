@@ -43,7 +43,7 @@ int verify_rs_es256(bytes *to_verify, char *sig_hex, ecc_key *public_key) {
     assert(sig_hex != NULL);
     int key_size = wc_ecc_size(public_key);
     // Check signature length
-    // Signature is R and L concatenated, so length sould be 2 * key size,
+    // Signature is R and L concatenated, so length should be 2 * key size,
     // times 2 (because hex encoded: 2 chars per byte)
     assert(strlen(sig_hex) == 2 * 2 * key_size);
 

@@ -1,5 +1,5 @@
 /*
- * Verification test for HMAC-SHA256 (HS256) MAC'ed COSE message
+ * Verification demo/test for COSE messages
  *
  */
 #include <stdio.h>
