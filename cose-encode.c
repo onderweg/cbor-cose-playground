@@ -14,7 +14,7 @@
 #include <wolfssl/wolfcrypt/ecc.h>
 
 void encode_sign1() {
-    // Import key
+    // Set values that make the ECC private key.
     cose_ecc_key private_key = {
         .x = "bac5b11cad8f99f9c72b05cf4b9e26d244dc189f745228255a219a86d6a09ef"
              "f",
@@ -24,6 +24,7 @@ void encode_sign1() {
              "4d3", // private key
         .curve_id = ECC_SECP256R1};
 
+    // Define the payload. We use a simple string here.
     char *payload_str = "Hi there";
     bytes payload = {(uint8_t *)payload_str, strlen(payload_str)};
 
@@ -45,6 +46,7 @@ void encode_sign1() {
         &protected_len);
     bytes protected = {protected_buf, protected_len};
 
+    // Setup message structure
     cose_sign1_mac_msg msg = {
         .payload = payload,
         .protected_header = protected,
@@ -53,13 +55,15 @@ void encode_sign1() {
 
     bytes external_aad = {NULL, 0};
 
+    // Prepare output data structures
     byte out_buf[512];
     size_t out_size = sizeof(out_buf);
     size_t out_len;
 
+    // Encode and sign the mssage
     cose_encode_sign1(&msg, COSE_ALG_ES256, &external_aad, &private_key, out_buf, out_size, &out_len);
 
-    // Print result
+    // Print result as a hex string
     printf("Sign message:\n");
     phex(out_buf, out_len);
 }

@@ -8,8 +8,8 @@
 #include <cbor.h>
 
 #include "lib/cose.h"
-#include "lib/hmac.h"
 #include "lib/ecdsa.h"
+#include "lib/hmac.h"
 #include "lib/utils.h"
 
 void verify_mac0() {
@@ -42,12 +42,12 @@ void verify_mac0() {
     cose_header_init(&protected_header);
     cose_decode_header_bytes(&signed_msg.protected_header, &protected_header);
 
+    // Get header value for algorythm.
     cose_header_value *alg = cose_header_get(&protected_header, cose_label_alg);
 
     char *y;
     buffer_to_hexstring(&y, signed_msg.signature.buf, signed_msg.signature.len);
     printf("Embeded Signature: %s\n", y);
-
     printf("CBOR tag: %llu\n", signed_msg.tag);
     printf("Signature type in protected header: %i\n", alg->as_int);
     if (alg->as_int == COSE_ALG_HMAC_256) {
@@ -58,19 +58,17 @@ void verify_mac0() {
 }
 
 void verify_sign1() {
-    // Import key
-    ecc_key RS_ID;
-    cose_ecc_key RS_ID_ = {
+    // Set key values
+    ecc_key public_key;
+    cose_ecc_key pk_ = {
         .x = "bac5b11cad8f99f9c72b05cf4b9e26d244dc189f745228255a219a86d6a09eff",
         .y = "20138bf82dc1b6d562be0fa54ab7804a3a64b6d72ccfed6b6fb6ed28bbfc117e",
-        .d =
-            NULL, // "57c92077664146e876760c9520d054aa93c3afb04e306705db6090308507b4d3",
-                  // // private key
+        .d = NULL,
         .curve_id = ECC_SECP256R1};
-    wc_ecc_import_raw_ex(&RS_ID, RS_ID_.x, RS_ID_.y, RS_ID_.d, RS_ID_.curve_id);
+    wc_ecc_import_raw_ex(&public_key, pk_.x, pk_.y, pk_.d, pk_.curve_id);
 
     // Key check
-    int check = wc_ecc_check_key(&RS_ID);
+    int check = wc_ecc_check_key(&public_key);
     printf("Key check: %s\n", check == MP_OKAY ? "OKAY" : "FAIL");
     if (check != MP_OKAY) {
         return;
@@ -102,6 +100,7 @@ void verify_sign1() {
     cose_decode_header_bytes(
         &signed_msg.protected_header, &decoded_protected_header);
 
+    // Get header values for algorythm
     cose_header_value *alg_protected =
         cose_header_get(&decoded_protected_header, cose_label_alg);
     cose_header_value *alg_unprotected =
@@ -131,10 +130,11 @@ void verify_sign1() {
     buffer_to_hexstring(
         &sig_hex, signed_msg.signature.buf, signed_msg.signature.len);
 
+    // Verify message
     if ((alg_protected != NULL && alg_protected->as_int == COSE_ALG_ES256) ||
         (alg_unprotected != NULL &&
             alg_unprotected->as_int == COSE_ALG_ES256)) {
-        int verified = verify_rs_es256(&signed_msg.to_verify, sig_hex, &RS_ID);
+        int verified = verify_rs_es256(&signed_msg.to_verify, sig_hex, &public_key);
         printf("Verified: %s (%i)\n", verified == 1 ? "YES" : "NO", verified);
     }
 }
