@@ -34,7 +34,7 @@ void cose_header_init(cose_header *hdr) {
 
 /**
  * Adds a COSE header paramater (label/value pair) to an
- * existing COSE header sttructure.
+ * existing COSE header structure.
  *
  * @note Before this function can be used, the header structure has to be
  * initialised with `cose_header_init`.
@@ -64,7 +64,7 @@ void cose_header_free(cose_header *hdr) {
  * Retrieves first header parameter with provided label from set of header
  * parameters.
  *
- * @note Before this function can be used, the header structure has to be
+ * @note Before this function can be used, the header structure MUST be
  * initialised with `cose_header_init`.
  *
  * @returns Header value for label, or NULL if not found.
@@ -207,7 +207,7 @@ cose_result cose_decode_header_bytes(bytes *protected, cose_header *out) {
 
 /**
  * Decodes a COSE header that is a `CborValue`.
- * (Both protected and unprotected maps use the same set of label/value pairs.)
+ * (Both protected and unprotected headers use the same set of label/value pairs.)
  */
 cose_result cose_decode_header(CborValue *cborValue, cose_header *out) {
     if (!cbor_value_is_map(cborValue)) {

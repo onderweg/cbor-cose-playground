@@ -7,8 +7,7 @@ run on IoT devices.
 
 ## Acknowledgement
 
-This code is in large part based on parts of [HappyEmu/rs_http](https://github.com/HappyEmu/rs_http).
-I modified and extended the code, for example HMAC signature handling was added.
+[HappyEmu/rs_http](https://github.com/HappyEmu/rs_http) was used as a basis/inspiration for this code.
 
 ## Dependencies
 
