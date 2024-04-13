@@ -83,13 +83,17 @@ typedef struct cose_sign1_mac_msg {
 } cose_sign1_mac_msg;
 
 /**
- * Contains components of a ECC key
+ * Contains components of a public or private Elliptic curve cryptography (ECC) key
+ * An ECC key is contains cNID value (curve-ID), scalar (d), and Point (x,y).
  */
 typedef struct cose_ecc_key {
+    // ecc point (public part)
     char *x;
     char *y;
+    // ecc scalar (private part)
     char *d;
-    int curve_id; // ecc_curve_id
+    // ecc curve id
+    int curve_id; 
 } cose_ecc_key;
 
 void cose_header_init(cose_header *hdr);
@@ -113,5 +117,7 @@ cose_result cose_encode_mac0(cose_sign1_mac_msg *msg, bytes *external_aad,
 cose_result cose_encode_sign1(cose_sign1_mac_msg *msg, cose_alg_t alg,
     bytes *external_aad, cose_ecc_key *private_key, uint8_t *out,
     size_t out_size, size_t *out_len);
+
+bool cose_verify_sign1(cose_ecc_key public_key, uint8_t *msg_buf, size_t msg_len, cose_sign1_mac_msg* out_decoded_msg);
 
 #endif // ONDERWEG_COSE_H

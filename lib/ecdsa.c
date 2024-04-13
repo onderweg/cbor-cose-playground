@@ -1,10 +1,85 @@
 #include <stdio.h>
 #include <string.h>
+
 #include <wolfssl/options.h>
+#include <wolfssl/ssl.h>
+#include <wolfssl/wolfcrypt/asn_public.h>
 #include <wolfssl/wolfcrypt/ecc.h>
+#include <wolfssl/wolfcrypt/error-crypt.h>
 
 #include "cose.h"
 #include "utils.h"
+
+cose_ecc_key cose_pubkey_from_ecc(ecc_key key, char *x_buff, char *y_buff) {
+    assert(x_buff != NULL);
+    assert(y_buff != NULL);
+
+    mp_int *raw_x = key.pubkey.x;
+    mp_int *raw_y = key.pubkey.y;
+
+    // Prepare new cose_ecc_key struct
+    cose_ecc_key pk_ = {
+        .x = x_buff,
+        .y = y_buff,
+        .d = NULL,
+        .curve_id = ECC_SECP256R1,
+    };
+
+    mp_tohex(raw_x, (char *)x_buff);
+    mp_tohex(raw_y, (char *)y_buff);
+
+    mp_clear(raw_x);
+    mp_clear(raw_y);
+
+    return pk_;
+}
+
+int ecc_key_to_der_file(const char *fileName, ecc_key key) {
+    uint8_t der_key[4096];    
+    int ret = wc_EccKeyToDer(&key, der_key, 4096);
+    if (ret < 0) {
+        return -1;
+    }
+
+    FILE *fp;
+
+    // writing prive key
+    fp = fopen(fileName, "w");
+    if (!fp) {
+        return -1;
+    }
+    fwrite(der_key, ret, 1, fp);
+    fclose(fp);
+    return 0;
+}
+
+/**
+ * Returns ecc key from a PEM key file. Sets `err` on error.
+ */
+ecc_key ecc_pubkey_from_pem(const char *fileName, int *err) {
+    int ret = 0;
+    ecc_key pubkey;
+
+    wc_ecc_init(&pubkey);
+
+    // Loads a PEM key from a file and converts to a DER encoded buffer.
+    unsigned char der[1024];
+    ret = wc_PemPubKeyToDer(fileName, der, sizeof(der));
+    if (ret < 0) {
+        if (err != NULL)
+            *err = ret;
+        return pubkey;
+    }
+
+    word32 idx = 0;
+    ret = wc_EccPublicKeyDecode(der, &idx, &pubkey, sizeof(der));
+    if (ret != 0) {
+        if (err != NULL)
+            *err = ret;
+        return pubkey;
+    }
+    return pubkey;
+}
 
 /**
  * Verify ES256 (SHA256 with ECDSA) signature.
@@ -63,13 +138,14 @@ int verify_rs_es256(bytes *to_verify, char *sig_hex, ecc_key *public_key) {
 }
 
 /**
- * Calculate digest of message to sign, and signs the digest with a ECDSA signature.
- * Produces R and S components.
+ * Calculate digest of message to sign, and signs the digest with a ECDSA
+ * signature. Produces R and S components.
  */
-void sign_es256(bytes *to_sign, ecc_key *private_key, mp_int *r, mp_int *s) {    
+void sign_es256(
+    bytes *to_sign, ecc_key *private_key, mp_int *r_out, mp_int *s_out) {
     WC_RNG rng;
     wc_InitRng(&rng);
-    // Compute digest
+    // Compute SHA256 digest
     Sha256 sha;
     byte digest[SHA256_DIGEST_SIZE];
     wc_InitSha256(&sha);
@@ -77,7 +153,8 @@ void sign_es256(bytes *to_sign, ecc_key *private_key, mp_int *r, mp_int *s) {
     assert(res == 0);
     res = wc_Sha256Final(&sha, digest);
     assert(res == 0);
-    // Sign message
-    res = wc_ecc_sign_hash_ex(digest, sizeof(digest), &rng, private_key, r, s);
+    // Sign message digest
+    res = wc_ecc_sign_hash_ex(
+        digest, sizeof(digest), &rng, private_key, r_out, s_out);
     assert(res == MP_OKAY);
 }

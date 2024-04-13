@@ -3,6 +3,45 @@
 
 #include "utils.h"
 
+unsigned char* buffer_from_file(const char* filename, size_t* buffer_size) {
+    FILE* file = fopen(filename, "rb");
+    if (file == NULL) {
+        printf("Error: Unable to open file %s\n", filename);
+        return NULL;
+    }
+
+    // Get the file size
+    fseek(file, 0, SEEK_END);
+    long file_size = ftell(file);
+    rewind(file);
+
+    // Allocate memory for the buffer
+    unsigned char* buffer = (unsigned char*)malloc(file_size);
+    if (buffer == NULL) {
+        printf("Error: Unable to allocate memory\n");
+        fclose(file);
+        return NULL;
+    }
+
+    // Read the file into the buffer
+    size_t bytes_read = fread(buffer, sizeof(unsigned char), file_size, file);
+    if (bytes_read != file_size) {
+        printf("Error: Unable to read the entire file\n");
+        free(buffer);
+        fclose(file);
+        return NULL;
+    }
+
+    fclose(file);
+
+    // Set the buffer size if requested
+    if (buffer_size != NULL) {
+        *buffer_size = file_size;
+    }
+
+    return buffer;
+}
+
 size_t hexstring_to_buffer(uint8_t **buffer, char *string, size_t string_len) {
     size_t out_length = string_len / 2;
     uint8_t *block = malloc(out_length);

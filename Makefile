@@ -5,7 +5,7 @@ PKG_FLAGS = `pkg-config --cflags --libs wolfssl tinycbor`
 
 UNAME := $(shell uname)
 
-all: cose-verify cose-encode
+all: cose-verify cose-encode test
 .PHONY: all
 
 cose-verify: cose-verify.c $(LIB_SRC)

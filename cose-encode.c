@@ -22,7 +22,8 @@ void encode_sign1() {
              "17e",
         .d = "57c92077664146e876760c9520d054aa93c3afb04e306705db6090308507b"
              "4d3", // private key
-        .curve_id = ECC_SECP256R1};
+        .curve_id = ECC_SECP256R1,
+    };
 
     // Define the payload. We use a simple string here.
     char *payload_str = "Hi there";
@@ -36,10 +37,10 @@ void encode_sign1() {
         (cose_header_value){.as_int = COSE_ALG_ES256});
     cose_header_push(&protected_header,
         cose_label_KID,
-        (cose_header_value){.as_bstr = {(uint8_t *)"11", 2}});        
+        (cose_header_value){.as_bstr = {(uint8_t *)"11", 2}});
 
     uint8_t protected_buf[512];
-    size_t protected_len;        
+    size_t protected_len;
     cose_encode_header_bytes(&protected_header,
         protected_buf,
         sizeof(protected_buf),
@@ -60,11 +61,21 @@ void encode_sign1() {
     size_t out_size = sizeof(out_buf);
     size_t out_len;
 
-    // Encode and sign the mssage
-    cose_encode_sign1(&msg, COSE_ALG_ES256, &external_aad, &private_key, out_buf, out_size, &out_len);
+    // Encode and sign the message
+    cose_result res = cose_encode_sign1(&msg,
+        COSE_ALG_ES256,
+        &external_aad,
+        &private_key,
+        out_buf,
+        out_size,
+        &out_len);
+    if (res != cose_ok) {
+        printf("cose encode failed: %d", res);
+        exit(EXIT_FAILURE);
+    }
 
     // Print result as a hex string
-    printf("Sign message:\n");
+    printf("sign1 message with EC signature:\n");
     phex(out_buf, out_len);
 }
 

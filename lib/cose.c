@@ -1,7 +1,7 @@
 /* An incomplete Concise Binary Object Representation (CBOR) library.
  *
  * Copyright (c) 2021, G. Stevens <dev at onderweg dot eu>
- * 
+ *
  * USE AT YOUR OWN RISK. I threw this together as a personal learning
  * experiment.
  */
@@ -207,7 +207,8 @@ cose_result cose_decode_header_bytes(bytes *protected, cose_header *out) {
 
 /**
  * Decodes a COSE header that is a `CborValue`.
- * (Both protected and unprotected headers use the same set of label/value pairs.)
+ * (Both protected and unprotected headers use the same set of label/value
+ * pairs.)
  */
 cose_result cose_decode_header(CborValue *cborValue, cose_header *out) {
     if (!cbor_value_is_map(cborValue)) {
@@ -399,7 +400,7 @@ cose_result cose_encode_sign1(cose_sign1_mac_msg *msg, cose_alg_t alg,
         private_key->x,
         private_key->y,
         private_key->d,
-        (ecc_curve_id)private_key->curve_id);
+        (ecc_curve_id)private_key->curve_id); // (!)
 
     // Check key
     if (wc_ecc_check_key(&key) != MP_OKAY) {
@@ -409,6 +410,8 @@ cose_result cose_encode_sign1(cose_sign1_mac_msg *msg, cose_alg_t alg,
     // Calculate signature
     mp_int r; // destination for r component of signature.
     mp_int s; // destination for s component of signature.
+    mp_init(&r);
+    mp_init(&s);
     bytes to_sign = {to_sign_buf, to_sign_len};
 
     // Sign message
@@ -450,4 +453,66 @@ cose_result cose_encode_sign1(cose_sign1_mac_msg *msg, cose_alg_t alg,
     cbor_encoder_close_container(&enc, &ary);
     *out_len = cbor_encoder_get_buffer_size(&enc, out);
     return cose_ok;
+}
+
+/**
+ * Verify cose sign1 message
+ */
+bool cose_verify_sign1(cose_ecc_key public_key, uint8_t *msg_buf, size_t msg_len, cose_sign1_mac_msg* out_decoded_msg) {
+    cose_result res;
+    assert(msg_buf != NULL);
+
+    ecc_key ecc_key;
+    wc_ecc_import_raw_ex(&ecc_key, public_key.x, public_key.y, public_key.d, public_key.curve_id);
+
+    int check = wc_ecc_check_key(&ecc_key);
+    assert(check == MP_OKAY);
+
+    cose_sign1_mac_msg signed_msg;
+
+    // Decode CBOR message
+    bytes msg_bytes = {msg_buf, msg_len};
+    uint8_t to_verify_buf[1024];
+    res = cose_decode_not_encrypted(
+        &msg_bytes, NULL, to_verify_buf, sizeof(to_verify_buf), &signed_msg);
+    assert(res == cose_ok);
+
+    // Decode protected header
+    cose_header decoded_protected_header;
+    cose_header_init(&decoded_protected_header);
+    cose_decode_header_bytes(
+        &signed_msg.protected_header, &decoded_protected_header);
+
+    // Get header values for algorithm
+    cose_header_value *alg_protected =
+        cose_header_get(&decoded_protected_header, cose_label_alg);
+    cose_header_value *alg_unprotected =
+        cose_header_get(&signed_msg.unprotected_header, cose_label_alg);
+
+    char *to_be_signed_hex;
+    buffer_to_hexstring(
+        &to_be_signed_hex, signed_msg.to_verify.buf, signed_msg.to_verify.len);
+
+    char *signature_hex;
+    buffer_to_hexstring(
+        &signature_hex, signed_msg.signature.buf, signed_msg.signature.len);
+
+    char *sig_hex;
+    buffer_to_hexstring(
+        &sig_hex, signed_msg.signature.buf, signed_msg.signature.len);
+
+    // Verify message
+    int verified = 0;
+    if ((alg_protected != NULL && alg_protected->as_int == COSE_ALG_ES256) ||
+        (alg_unprotected != NULL &&
+            alg_unprotected->as_int == COSE_ALG_ES256)) {
+        verified = verify_rs_es256(&signed_msg.to_verify, sig_hex, &ecc_key);
+    }
+
+    // If a pointer to output struct is provided, fill output struct with decoded message
+    if (out_decoded_msg != NULL) {
+        *out_decoded_msg = signed_msg;
+    }
+    
+    return verified == 1;
 }

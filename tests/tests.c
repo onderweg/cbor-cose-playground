@@ -2,8 +2,11 @@
 
 #include <cbor.h>
 #include <cose.h>
+#include <ecdsa.h>
+#include <utils.h>
 
 #include <wolfssl/options.h>
+#include <wolfssl/wolfcrypt/ecc.h>
 #include <wolfssl/wolfcrypt/types.h>
 
 #define TEST_COLOR_BOLD "\033[1m"
@@ -23,7 +26,7 @@ static int fails = 0;
     if (_c)                                                                    \
         printf("  " TEST_COLOR_SUCCESS "✓ PASSED" TEST_COLOR_RESET "\n");      \
     else {                                                                     \
-        printf("  " TEST_COLOR_FAIL "✕ FAILED on line %i%s" TEST_COLOR_RESET  \
+        printf("  " TEST_COLOR_FAIL "✕ FAILED on line %i%s" TEST_COLOR_RESET   \
                "\n",                                                           \
             __LINE__,                                                          \
             msg(_n));                                                          \
@@ -69,10 +72,34 @@ void test_decodes_header() {
     cose_header_free(&header);
 }
 
+void test_verifies_sig1() {
+    test("Verifies COSE sig1");
+    // Load public key from .pem file
+    ecc_key key = ecc_pubkey_from_pem("./tests/public.pem");    
+    // Convert wolfssl ecc key to generic structure with x,y components
+    char x[512], y[512];
+    cose_ecc_key cose_ecc = cose_pubkey_from_ecc(key,x,y);
+    // Load raw signed cose message form file
+    size_t msg_len;
+    byte *msg_buf = buffer_from_file("./tests/sig.cbor", &msg_len);    
+    assert_true(msg_buf != NULL, "cbor file can be read");
+
+    cose_sign1_mac_msg decoded_msg;
+    bool verified = cose_verify_sign1(cose_ecc, msg_buf, msg_len, &decoded_msg);
+    assert_true(verified == true, "signature is verified");
+
+    char expected[11] = {'h', 'e', 'l', 'l','o',' ', 'w', 'o', 'r', 'l','d'};
+    int cmp_result = memcmp(decoded_msg.payload.buf, expected, 11);
+    assert_true(cmp_result == 0, "payload matches");
+
+    free(msg_buf);
+}
+
 int main(int argc, char *argv[]) {
     // Tests
     test_encodes_header();
     test_decodes_header();
+    test_verifies_sig1();
 
     // Show results
     if (fails) {

@@ -17,7 +17,7 @@ void verify_mac0() {
     byte *msg_buf, *key_buf;
 
     // Example HMAC-SHA256 signed COSE message
-    // Source: // Source:
+    // Source:
     // https://github.com/cose-wg/Examples/blob/3221310e2cf50ad13213daa7ca278209a8bc85fd/mac0-tests/HMac-01.json
     char *msg_hex =
         "D18443A10105A054546869732069732074686520636F6E74656E742E5820A1A848D347"
@@ -64,7 +64,8 @@ void verify_sign1() {
         .x = "bac5b11cad8f99f9c72b05cf4b9e26d244dc189f745228255a219a86d6a09eff",
         .y = "20138bf82dc1b6d562be0fa54ab7804a3a64b6d72ccfed6b6fb6ed28bbfc117e",
         .d = NULL,
-        .curve_id = ECC_SECP256R1};
+        .curve_id = ECC_SECP256R1,
+    };
     wc_ecc_import_raw_ex(&public_key, pk_.x, pk_.y, pk_.d, pk_.curve_id);
 
     // Key check
@@ -88,25 +89,11 @@ void verify_sign1() {
     // Convert message hex to bytes
     size_t msg_len = hexstring_to_buffer(&msg_buf, msg_hex, strlen(msg_hex));
 
-    // Decode CBOR message
-    bytes msg_bytes = {msg_buf, msg_len};
-    uint8_t to_verify_buf[1024];
-    cose_decode_not_encrypted(
-        &msg_bytes, NULL, to_verify_buf, sizeof(to_verify_buf), &signed_msg);
-
-    // Decode protected header
-    cose_header decoded_protected_header;
-    cose_header_init(&decoded_protected_header);
-    cose_decode_header_bytes(
-        &signed_msg.protected_header, &decoded_protected_header);
-
-    // Get header values for algorythm
-    cose_header_value *alg_protected =
-        cose_header_get(&decoded_protected_header, cose_label_alg);
-    cose_header_value *alg_unprotected =
-        cose_header_get(&signed_msg.unprotected_header, cose_label_alg);
+    bool verified = cose_verify_sign1(pk_, msg_buf, msg_len, &signed_msg);
 
     printf("CBOR tag: %llu\n", signed_msg.tag);
+
+    /*
     if (alg_protected != NULL) {
         printf(
             "Signature type in protected header: %i\n", alg_protected->as_int);
@@ -115,6 +102,7 @@ void verify_sign1() {
         printf("Signature type in unprotected header: %i\n",
             alg_unprotected->as_int);
     }
+    */
 
     char *to_be_signed_hex;
     buffer_to_hexstring(
@@ -130,13 +118,7 @@ void verify_sign1() {
     buffer_to_hexstring(
         &sig_hex, signed_msg.signature.buf, signed_msg.signature.len);
 
-    // Verify message
-    if ((alg_protected != NULL && alg_protected->as_int == COSE_ALG_ES256) ||
-        (alg_unprotected != NULL &&
-            alg_unprotected->as_int == COSE_ALG_ES256)) {
-        int verified = verify_rs_es256(&signed_msg.to_verify, sig_hex, &public_key);
-        printf("Verified: %s (%i)\n", verified == 1 ? "YES" : "NO", verified);
-    }
+    printf("Verified: %s (%i)\n", verified == 1 ? "YES" : "NO", verified);
 }
 
 int main(int argc, char *argv[]) {

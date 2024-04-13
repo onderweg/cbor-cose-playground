@@ -16,7 +16,7 @@ The following libraries are needed to use the code:
 - [tinycbor](https://github.com/intel/tinycbor) - "TinyCBOR is Intel's industrial strength C/C++ implementation of CBOR"
 - [wolfssl](https://www.wolfssl.com/) - "lightweight, portable, C-language-based SSL/TLS library targeted at IoT, embedded, and RTOS environments".
     - On Mac: `brew install wolfssl`
-    - *note*: wolfssl should be compiled with `WOLFSSL_PUBLIC_MP` defined: `./configure C_EXTRA_FLAGS=-DWOLFSSL_PUBLIC_MP`
+    - *note*: wolfssl should be compiled with `WOLFSSL_PUBLIC_MP`, `WOLFSSL_PUB_PEM_TO_DER`, `WOLFSSL_DER_TO_PEM` (for `wc_PemPubKeyToDer()`) defined: `./configure C_EXTRA_FLAGS="-DWOLFSSL_PUBLIC_MP -DWOLFSSL_PUB_PEM_TO_DER"`
 
 ## Notes
 
@@ -25,6 +25,10 @@ The following libraries are needed to use the code:
     - Keep dynamic memory allocation (`malloc`, etc) to a minimum. Currently allocation is only used in:
         - Results from `cbor_value_dup_byte_string`
         - Member `pairs` of `cose_header` struct (implemented as dynamic array)
+
+### Todo
+
+[] Free memory allocated by Tinycbor decoder
 
 ## Disclaimer
 
