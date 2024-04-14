@@ -60,7 +60,7 @@ void cose_header_free(cose_header *hdr) {
     hdr->size = 0;
 }
 
-void cose_sign1_mac_msg_free(cose_sign1_mac_msg* msg) {
+void cose_sign1_mac_msg_free(cose_sign1_mac_msg *msg) {
     cose_header_free(&msg->unprotected_header);
     free(msg->payload.buf);
     free(msg->signature.buf);
@@ -342,10 +342,31 @@ cose_result cose_decode_not_encrypted(bytes *msg, bytes *external_aad,
 }
 
 /**
- * Encode a COSE_Mac0 message
+ * Create a COSE_Mac0 message structure
+ */
+cose_result cose_init_mac0(bytes *payload, cose_sign1_mac_msg *out_msg) {
+    assert(payload);
+    assert(out_msg);
+
+    // Unprotected header
+    cose_header unprotected_header;
+    cose_header_init(&unprotected_header);
+    cose_header_push(&unprotected_header,
+        cose_label_alg,
+        (cose_header_value){.as_int = COSE_ALG_HMAC_256});
+    bytes protected = {NULL, 0};
+
+    out_msg->payload = *payload;
+    out_msg->protected_header = protected;
+    out_msg->unprotected_header = unprotected_header;
+    return cose_ok;
+}
+
+/**
+ * Encode a COSE_Mac0 message structure into CBOR bytes
  */
 cose_result cose_encode_mac0(cose_sign1_mac_msg *msg, bytes *external_aad,
-    bytes *secret, uint8_t *out, size_t out_size, size_t *out_len) {
+    bytes *secret, uint8_t *out, size_t out_size, size_t *out_result_len) {
     uint8_t sign_buf[512];
     size_t sign_len;
 
@@ -377,7 +398,7 @@ cose_result cose_encode_mac0(cose_sign1_mac_msg *msg, bytes *external_aad,
     cbor_encode_byte_string(&ary, msg->payload.buf, msg->payload.len);
     cbor_encode_byte_string(&ary, hmac_digest, SHA256_DIGEST_SIZE);
     cbor_encoder_close_container(&enc, &ary);
-    *out_len = cbor_encoder_get_buffer_size(&enc, out);
+    *out_result_len = cbor_encoder_get_buffer_size(&enc, out);
     return cose_ok;
 }
 
@@ -464,12 +485,17 @@ cose_result cose_encode_sign1(cose_sign1_mac_msg *msg, cose_alg_t alg,
 /**
  * Verify cose sign1 message
  */
-bool cose_verify_sign1(cose_ecc_key public_key, uint8_t *msg_buf, size_t msg_len, cose_sign1_mac_msg* out_decoded_msg) {
+bool cose_verify_sign1(cose_ecc_key public_key, uint8_t *msg_buf,
+    size_t msg_len, cose_sign1_mac_msg *out_decoded_msg) {
     cose_result res;
     assert(msg_buf != NULL);
 
     ecc_key ecc_key;
-    wc_ecc_import_raw_ex(&ecc_key, public_key.x, public_key.y, public_key.d, public_key.curve_id);
+    wc_ecc_import_raw_ex(&ecc_key,
+        public_key.x,
+        public_key.y,
+        public_key.d,
+        public_key.curve_id);
 
     int check = wc_ecc_check_key(&ecc_key);
     assert(check == MP_OKAY);
@@ -515,10 +541,11 @@ bool cose_verify_sign1(cose_ecc_key public_key, uint8_t *msg_buf, size_t msg_len
         verified = verify_rs_es256(&signed_msg.to_verify, sig_hex, &ecc_key);
     }
 
-    // If a pointer to output struct is provided, fill output struct with decoded message
+    // If a pointer to output struct is provided, fill output struct with
+    // decoded message
     if (out_decoded_msg != NULL) {
         *out_decoded_msg = signed_msg;
     }
-    
+
     return verified == 1;
 }

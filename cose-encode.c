@@ -86,34 +86,32 @@ void encode_mac0() {
 
     // Set payload. Will be encoded as byte string (bstr). From COSE specs:
     // "payload is wrapped in a bstr to ensure that it is transported without
-    // changes."    
-    uint8_t payload_buf[] = {'h', 'e', 'l', 'l', 'o'}; // acutal payload. Canbe anything. In this case ascii string
+    // changes."
+    uint8_t payload_buf[] = {
+        'h',
+        'e',
+        'l',
+        'l',
+        'o',
+    }; // acutal payload. Can be anything. In this case ascii string
     size_t payload_len = sizeof(payload_buf);
     bytes payload = {payload_buf, payload_len};
 
-    // Unprotected header
-    cose_header unprotected_header;
-    cose_header_init(&unprotected_header);
-    cose_header_push(&unprotected_header,
-        cose_label_alg,
-        (cose_header_value){.as_int = COSE_ALG_HMAC_256});
-    bytes protected = {NULL, 0};
-
-    cose_sign1_mac_msg msg = {.payload = payload,
-        .protected_header = protected,
-        .unprotected_header = unprotected_header};
+    cose_sign1_mac_msg msg;
+    cose_init_mac0(&payload, &msg);
 
     bytes external_aad = {NULL, 0};
 
     byte out_buf[512];
     size_t out_size = sizeof(out_buf);
-    size_t out_len;
+    size_t result_len;
 
-    cose_encode_mac0(&msg, &external_aad, &secret, out_buf, out_size, &out_len);
+    // Encode the message structure into CBOR.
+    cose_encode_mac0(&msg, &external_aad, &secret, out_buf, out_size, &result_len);
 
     // Print result
     printf("mac0 message with HMAC signature:\n");
-    phex(out_buf, out_len);
+    phex(out_buf, result_len);
 }
 
 int main(int argc, char *argv[]) {

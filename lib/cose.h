@@ -115,8 +115,10 @@ cose_result cose_decode_not_encrypted(bytes *msg, bytes *external_aad,
     uint8_t *calculated_sig_buf, size_t calculated_sig_size,
     cose_sign1_mac_msg *out);
 
+cose_result cose_init_mac0(bytes *payload, cose_sign1_mac_msg *out_msg);
 cose_result cose_encode_mac0(cose_sign1_mac_msg *msg, bytes *external_aad,
     bytes *secret, uint8_t *out, size_t out_size, size_t *out_len);
+
 cose_result cose_encode_sign1(cose_sign1_mac_msg *msg, cose_alg_t alg,
     bytes *external_aad, cose_ecc_key *private_key, uint8_t *out,
     size_t out_size, size_t *out_len);
