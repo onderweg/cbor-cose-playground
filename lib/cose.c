@@ -509,6 +509,9 @@ bool cose_verify_sign1(cose_ecc_key public_key, uint8_t *msg_buf, size_t msg_len
         verified = verify_rs_es256(&signed_msg.to_verify, sig_hex, &ecc_key);
     }
 
+    // Clean up allocated memory
+    cose_header_free(&decoded_protected_header);
+
     // If a pointer to output struct is provided, fill output struct with decoded message
     if (out_decoded_msg != NULL) {
         *out_decoded_msg = signed_msg;
