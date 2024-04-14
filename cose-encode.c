@@ -84,13 +84,11 @@ void encode_mac0() {
     size_t secret_size = sizeof(secret_buf);
     bytes secret = {secret_buf, secret_size};
 
-    // Encode payload, encoded as bstr. From COSE specs:
+    // Set payload. Will be encoded as byte string (bstr). From COSE specs:
     // "payload is wrapped in a bstr to ensure that it is transported without
-    // changes. "
-    byte *payload_buf;
-    char *payload_hex = "684869207468657265"; // CBOR encoded text "Hi there"
-    size_t payload_len =
-        hexstring_to_buffer(&payload_buf, payload_hex, strlen(payload_hex));
+    // changes."    
+    uint8_t payload_buf[] = {'h', 'e', 'l', 'l', 'o'}; // acutal payload. Canbe anything. In this case ascii string
+    size_t payload_len = sizeof(payload_buf);
     bytes payload = {payload_buf, payload_len};
 
     // Unprotected header

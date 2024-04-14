@@ -60,6 +60,12 @@ void cose_header_free(cose_header *hdr) {
     hdr->size = 0;
 }
 
+void cose_sign1_mac_msg_free(cose_sign1_mac_msg* msg) {
+    cose_header_free(&msg->unprotected_header);
+    free(msg->payload.buf);
+    free(msg->signature.buf);
+}
+
 /**
  * Retrieves first header parameter with provided label from set of header
  * parameters.
@@ -508,9 +514,6 @@ bool cose_verify_sign1(cose_ecc_key public_key, uint8_t *msg_buf, size_t msg_len
             alg_unprotected->as_int == COSE_ALG_ES256)) {
         verified = verify_rs_es256(&signed_msg.to_verify, sig_hex, &ecc_key);
     }
-
-    // Clean up allocated memory
-    cose_header_free(&decoded_protected_header);
 
     // If a pointer to output struct is provided, fill output struct with decoded message
     if (out_decoded_msg != NULL) {

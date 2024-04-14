@@ -98,8 +98,11 @@ typedef struct cose_ecc_key {
 
 void cose_header_init(cose_header *hdr);
 void cose_header_push(cose_header *hdr, int label, cose_header_value value);
-void cose_header_free(cose_header *hdr);
 cose_header_value *cose_header_get(cose_header *hdr, int label);
+
+void cose_header_free(cose_header *hdr);
+void cose_sign1_mac_msg_free(cose_sign1_mac_msg* msg);
+
 
 void cose_encode_header_bytes(
     cose_header *hdr, uint8_t *out, size_t out_size, size_t *out_len);
