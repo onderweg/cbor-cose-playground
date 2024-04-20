@@ -30,6 +30,9 @@ void encode_sign1() {
     bytes payload = {(uint8_t *)payload_str, strlen(payload_str)};
 
     // Encode protected header
+    // COSE headers contain a protected and an un-protected data section. 
+    // The cryptographic algorithm used for the signature is specified inside 
+    // the protected area.    
     cose_header protected_header;
     cose_header_init(&protected_header);
     cose_header_push(&protected_header,
